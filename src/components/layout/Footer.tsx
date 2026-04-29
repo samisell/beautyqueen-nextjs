@@ -27,9 +27,14 @@ const footerLinks = {
     { label: 'Instructions', page: 'instruction' },
   ],
   Legal: [
-    { label: 'Privacy Policy', page: 'home' },
-    { label: 'Terms of Service', page: 'home' },
+    { label: 'Privacy Policy', page: 'privacy' },
+    { label: 'Terms of Service', page: 'terms' },
     { label: 'Rules', page: 'instruction' },
+  ],
+  Support: [
+    { label: 'Help Center', page: 'support' },
+    { label: 'Contact Us', page: 'contact' },
+    { label: 'FAQ', page: 'faq' },
   ],
 };
 
@@ -45,7 +50,7 @@ export default function Footer() {
     <footer className="bg-foreground text-background mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Main Footer */}
-        <div className="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
+        <div className="py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2 mb-4">

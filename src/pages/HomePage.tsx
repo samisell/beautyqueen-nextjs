@@ -13,6 +13,16 @@ import {
   Zap,
   ChevronRight,
   Flame,
+  Shield,
+  BarChart3,
+  Lock,
+  Gift,
+  Quote,
+  Mail,
+  CheckCircle,
+  PartyPopper,
+  Medal,
+  TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,7 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import ContestantCard from '@/components/contestants/ContestantCard';
 import { useNavigationStore } from '@/stores/navigation-store';
-import type { Contestant, TournamentStage, AdminStats } from '@/types';
+import type { Contestant, TournamentStage } from '@/types';
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 30 },
@@ -34,6 +44,72 @@ const fadeInUp = {
 const stagger = {
   visible: { transition: { staggerChildren: 0.1 } },
 };
+
+const features = [
+  {
+    icon: Shield,
+    title: 'Fair & Transparent Voting',
+    desc: 'Every vote is verified and counted accurately with blockchain-inspired auditability. No manipulation, no doubt.',
+    image: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=400&h=300&fit=crop',
+    gradient: 'from-blue-500 to-cyan-500',
+  },
+  {
+    icon: BarChart3,
+    title: 'Real-time Leaderboard',
+    desc: 'Watch rankings update live as votes come in. Feel the excitement of the competition as it unfolds.',
+    image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=300&fit=crop',
+    gradient: 'from-purple-500 to-pink-500',
+  },
+  {
+    icon: Lock,
+    title: 'Secure Payments',
+    desc: 'Industry-standard encryption protects every transaction. Your financial data is always safe with us.',
+    image: 'https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&h=300&fit=crop',
+    gradient: 'from-green-500 to-emerald-500',
+  },
+  {
+    icon: Gift,
+    title: 'Amazing Prizes',
+    desc: 'Winners take home incredible prizes including cash awards, brand partnerships, and exclusive opportunities.',
+    image: 'https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=400&h=300&fit=crop',
+    gradient: 'from-amber-500 to-orange-500',
+  },
+];
+
+const testimonials = [
+  {
+    name: 'Sarah Johnson',
+    role: 'Competition Winner 2024',
+    quote: 'BeautyVote changed my life! The entire experience was so professional and exciting. I felt like a true queen throughout the competition.',
+    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop',
+    rating: 5,
+  },
+  {
+    name: 'Maria Chen',
+    role: 'Active Voter & Supporter',
+    quote: "I love how transparent the voting process is. I can see real-time updates and I know my vote truly counts. It's such a fun community!",
+    image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop',
+    rating: 5,
+  },
+  {
+    name: 'Amara Okafor',
+    role: 'Brand Partner & Sponsor',
+    quote: "Partnering with BeautyVote has been incredible. The engagement and reach we get through this platform is unmatched in the industry.",
+    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop',
+    rating: 5,
+  },
+];
+
+const partners = [
+  'GLAM Corp',
+  'StyleHouse',
+  'BeautyPro',
+  'CrownMedia',
+  'VogueVibe',
+  'StarMaker',
+  'EliteFash',
+  'RadianceCo',
+];
 
 export default function HomePage() {
   const { navigate } = useNavigationStore();
@@ -77,7 +153,6 @@ export default function HomePage() {
           });
         }
       } catch {
-        // Use fallback data
         setStats({ contestants: 12, stages: 3, votes: 1200 });
       } finally {
         setLoading(false);
@@ -92,24 +167,27 @@ export default function HomePage() {
       title: 'Register',
       desc: 'Create your free account in seconds and start participating in the competition.',
       color: 'from-orange-500 to-amber-500',
+      image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=300&h=200&fit=crop',
     },
     {
       icon: Heart,
       title: 'Vote',
       desc: 'Browse contestants, pick your favorites, and cast your votes to support them.',
       color: 'from-rose-500 to-pink-500',
+      image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=300&h=200&fit=crop',
     },
     {
       icon: Trophy,
       title: 'Win',
       desc: 'Top contestants win amazing prizes. The queen with the most votes claims the crown!',
       color: 'from-amber-500 to-yellow-500',
+      image: 'https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=300&h=200&fit=crop',
     },
   ];
 
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
+      {/* ==================== 1. HERO SECTION ==================== */}
       <section className="relative overflow-hidden">
         {/* Background decoration */}
         <div className="absolute inset-0 -z-10">
@@ -119,83 +197,118 @@ export default function HomePage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-24">
-          <div className="flex flex-col items-center text-center">
-            {/* Animated Crown */}
-            <motion.div
-              initial={{ scale: 0, rotate: -20 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
-              className="mb-8"
-            >
-              <div className="relative">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-br from-primary via-orange-500 to-amber-500 flex items-center justify-center shadow-2xl shadow-primary/30">
-                  <Crown className="w-12 h-12 sm:w-14 sm:h-14 text-white" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Left: Text Content */}
+            <div className="flex flex-col text-center lg:text-left">
+              {/* Animated Crown */}
+              <motion.div
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
+                className="mb-8 lg:self-start"
+              >
+                <div className="relative">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-br from-primary via-orange-500 to-amber-500 flex items-center justify-center shadow-2xl shadow-primary/30">
+                    <Crown className="w-12 h-12 sm:w-14 sm:h-14 text-white" />
+                  </div>
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center"
+                  >
+                    <Sparkles className="w-4 h-4 text-yellow-900" />
+                  </motion.div>
+                  <motion.div
+                    animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
+                    transition={{ repeat: Infinity, duration: 2, delay: 0.7 }}
+                    className="absolute -bottom-1 -left-3 w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center"
+                  >
+                    <Star className="w-3 h-3 text-amber-900" />
+                  </motion.div>
                 </div>
-                <motion.div
-                  animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
-                  transition={{ repeat: Infinity, duration: 2 }}
-                  className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center"
+              </motion.div>
+
+              {/* Heading */}
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6"
+              >
+                <span className="gradient-text">Crown Your</span>
+                <br />
+                <span className="text-foreground">Queen</span>
+              </motion.h1>
+
+              {/* Subtitle */}
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="text-lg sm:text-xl text-muted-foreground max-w-2xl mb-10 mx-auto lg:mx-0"
+              >
+                Join thousands of voters in the most exciting beauty competition.
+                Your vote has the power to crown the next queen!
+              </motion.p>
+
+              {/* CTA Buttons */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+                className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
+              >
+                <Button
+                  size="lg"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-base font-semibold shadow-xl shadow-primary/25 rounded-2xl"
+                  onClick={() => navigate('register')}
                 >
-                  <Sparkles className="w-4 h-4 text-yellow-900" />
-                </motion.div>
-                <motion.div
-                  animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
-                  transition={{ repeat: Infinity, duration: 2, delay: 0.7 }}
-                  className="absolute -bottom-1 -left-3 w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center"
+                  <Zap className="w-5 h-5 mr-2" />
+                  Register Now
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="px-8 py-6 text-base font-semibold rounded-2xl border-2"
+                  onClick={() => navigate('leaderboard')}
                 >
-                  <Star className="w-3 h-3 text-amber-900" />
-                </motion.div>
-              </div>
-            </motion.div>
+                  <Trophy className="w-5 h-5 mr-2 text-primary" />
+                  View Leaderboard
+                </Button>
+              </motion.div>
+            </div>
 
-            {/* Heading */}
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6"
-            >
-              <span className="gradient-text">Crown Your</span>
-              <br />
-              <span className="text-foreground">Queen</span>
-            </motion.h1>
-
-            {/* Subtitle */}
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="text-lg sm:text-xl text-muted-foreground max-w-2xl mb-10"
-            >
-              Join thousands of voters in the most exciting beauty competition.
-              Your vote has the power to crown the next queen!
-            </motion.p>
-
-            {/* CTA Buttons */}
+            {/* Right: Hero Image */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 }}
-              className="flex flex-col sm:flex-row gap-4"
+              initial={{ opacity: 0, x: 60 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.5, duration: 0.8, ease: 'easeOut' }}
+              className="relative hidden lg:block"
             >
-              <Button
-                size="lg"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-base font-semibold shadow-xl shadow-primary/25 rounded-2xl"
-                onClick={() => navigate('register')}
-              >
-                <Zap className="w-5 h-5 mr-2" />
-                Register Now
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="px-8 py-6 text-base font-semibold rounded-2xl border-2"
-                onClick={() => navigate('leaderboard')}
-              >
-                <Trophy className="w-5 h-5 mr-2 text-primary" />
-                View Leaderboard
-              </Button>
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-primary/20">
+                <img
+                  src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1200&h=800&fit=crop"
+                  alt="Beauty pageant contestant on stage"
+                  className="w-full h-[480px] object-cover"
+                />
+                {/* Gradient overlay at bottom */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+                {/* Floating badge on image */}
+                <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-sm rounded-2xl px-5 py-3 shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-amber-500 flex items-center justify-center">
+                      <Medal className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">Season 2025</p>
+                      <p className="text-xs text-muted-foreground">Now accepting entries</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Decorative element behind image */}
+              <div className="absolute -top-4 -right-4 w-full h-full rounded-3xl border-2 border-primary/20 -z-10" />
             </motion.div>
           </div>
 
@@ -246,9 +359,20 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Featured Contestants */}
-      <section className="py-20 bg-muted/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ==================== 2. FEATURED CONTESTANTS ==================== */}
+      <section className="py-16 sm:py-20 bg-muted/30 relative overflow-hidden">
+        {/* Decorative background image */}
+        <div className="absolute inset-0 -z-0">
+          <img
+            src="https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&h=600&fit=crop"
+            alt=""
+            className="w-full h-full object-cover opacity-[0.04]"
+            aria-hidden="true"
+          />
+        </div>
+        <div className="absolute inset-0 -z-0 bg-gradient-to-b from-muted/80 via-muted/50 to-muted/80" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial="hidden"
             whileInView="visible"
@@ -327,8 +451,82 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Current Tournament Stage */}
-      <section className="py-20">
+      {/* ==================== 3. WHY CHOOSE BEAUTYVOTE ==================== */}
+      <section className="py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-100px' }}
+            variants={stagger}
+            className="text-center mb-14"
+          >
+            <motion.div variants={fadeInUp} custom={0}>
+              <Badge
+                variant="secondary"
+                className="mb-4 bg-primary/10 text-primary border-primary/20"
+              >
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Why BeautyVote
+              </Badge>
+            </motion.div>
+            <motion.h2
+              variants={fadeInUp}
+              custom={1}
+              className="text-3xl sm:text-4xl font-bold mb-4"
+            >
+              Why Choose <span className="gradient-text">BeautyVote</span>
+            </motion.h2>
+            <motion.p
+              variants={fadeInUp}
+              custom={2}
+              className="text-muted-foreground max-w-xl mx-auto"
+            >
+              We&apos;re committed to delivering the fairest, most exciting beauty
+              competition experience in the world.
+            </motion.p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+            {features.map((feature, i) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.12 }}
+              >
+                <Card className="h-full overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 bg-card group">
+                  {/* Card image */}
+                  <div className="relative h-36 overflow-hidden">
+                    <img
+                      src={feature.image}
+                      alt={feature.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                  </div>
+                  <CardContent className="p-6">
+                    <div
+                      className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}
+                    >
+                      <feature.icon className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="text-lg font-bold mb-2">{feature.title}</h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      {feature.desc}
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ==================== 4. CURRENT TOURNAMENT STAGE ==================== */}
+      <section className="py-16 sm:py-20 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial="hidden"
@@ -353,57 +551,90 @@ export default function HomePage() {
             >
               Current <span className="gradient-text">Stage</span>
             </motion.h2>
+            <motion.p
+              variants={fadeInUp}
+              custom={2}
+              className="text-muted-foreground max-w-xl mx-auto"
+            >
+              Follow the competition progress through multiple exciting stages.
+            </motion.p>
           </motion.div>
 
           {loading ? (
-            <Skeleton className="h-48 rounded-2xl" />
+            <Skeleton className="h-64 rounded-2xl" />
           ) : activeStage ? (
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
             >
-              <Card className="overflow-hidden border-2 border-primary/20 shine">
+              <Card className="overflow-hidden rounded-3xl shadow-lg border-2 border-primary/20">
                 <CardContent className="p-0">
-                  <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 sm:p-12">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-3 mb-2">
-                          <Badge
-                            className={
-                              activeStage.status === 'active'
-                                ? 'bg-green-500 text-white'
-                                : activeStage.status === 'completed'
-                                ? 'bg-gray-400 text-white'
-                                : 'bg-amber-500 text-white'
-                            }
-                          >
-                            {activeStage.status === 'active'
-                              ? 'Live Now'
-                              : activeStage.status === 'completed'
-                              ? 'Completed'
-                              : 'Upcoming'}
-                          </Badge>
-                          <Badge variant="outline" className="border-primary/30">
-                            Stage {activeStage.order}
-                          </Badge>
+                  <div className="relative">
+                    {/* Background decorative image */}
+                    <div className="absolute inset-0">
+                      <img
+                        src="https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=800&h=600&fit=crop"
+                        alt=""
+                        loading="lazy"
+                        className="w-full h-full object-cover opacity-10"
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <div className="relative bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 sm:p-12">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            {activeStage.status === 'active' && (
+                              <motion.div
+                                animate={{ scale: [1, 1.1, 1] }}
+                                transition={{ repeat: Infinity, duration: 2 }}
+                              >
+                                <Badge className="bg-green-500 text-white shadow-lg shadow-green-500/25">
+                                  <span className="relative flex h-2 w-2 mr-1.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                                  </span>
+                                  Live Now
+                                </Badge>
+                              </motion.div>
+                            )}
+                            {activeStage.status === 'completed' && (
+                              <Badge className="bg-gray-400 text-white">Completed</Badge>
+                            )}
+                            {activeStage.status === 'upcoming' && (
+                              <Badge className="bg-amber-500 text-white">Upcoming</Badge>
+                            )}
+                            <Badge variant="outline" className="border-primary/30">
+                              Stage {activeStage.order}
+                            </Badge>
+                          </div>
+                          <h3 className="text-2xl sm:text-3xl font-bold mb-2">
+                            {activeStage.name}
+                          </h3>
+                          <p className="text-muted-foreground max-w-lg">
+                            {activeStage.description ||
+                              'The competition is heating up! Cast your votes now.'}
+                          </p>
                         </div>
-                        <h3 className="text-2xl sm:text-3xl font-bold mb-2">
-                          {activeStage.name}
-                        </h3>
-                        <p className="text-muted-foreground">
-                          {activeStage.description ||
-                            'The competition is heating up! Cast your votes now.'}
-                        </p>
-                      </div>
-                      <div className="sm:text-right">
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(activeStage.startDate).toLocaleDateString()} —{' '}
-                          {new Date(activeStage.endDate).toLocaleDateString()}
-                        </p>
-                        <p className="text-2xl font-bold text-primary mt-1">
-                          {activeStage.contestantCount || 0} Contestants
-                        </p>
+                        <div className="sm:text-right shrink-0">
+                          <div className="bg-card/80 backdrop-blur-sm rounded-2xl p-5 shadow-lg border">
+                            <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider font-medium">
+                              Duration
+                            </p>
+                            <p className="text-sm text-foreground font-medium mb-3">
+                              {new Date(activeStage.startDate).toLocaleDateString()} —{' '}
+                              {new Date(activeStage.endDate).toLocaleDateString()}
+                            </p>
+                            <div className="flex items-center gap-2 justify-end">
+                              <Users className="w-4 h-4 text-primary" />
+                              <span className="text-2xl font-bold gradient-text">
+                                {activeStage.contestantCount || 0}
+                              </span>
+                              <span className="text-sm text-muted-foreground">Contestants</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -411,7 +642,7 @@ export default function HomePage() {
               </Card>
             </motion.div>
           ) : (
-            <Card className="p-8 text-center">
+            <Card className="p-8 text-center rounded-2xl shadow-lg">
               <Trophy className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-muted-foreground">
                 Tournament stages are being finalized. Check back soon!
@@ -432,8 +663,93 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="py-20 bg-muted/30">
+      {/* ==================== 5. TESTIMONIALS ==================== */}
+      <section className="py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-100px' }}
+            variants={stagger}
+            className="text-center mb-14"
+          >
+            <motion.div variants={fadeInUp} custom={0}>
+              <Badge
+                variant="secondary"
+                className="mb-4 bg-primary/10 text-primary border-primary/20"
+              >
+                <Star className="w-3 h-3 mr-1" />
+                Testimonials
+              </Badge>
+            </motion.div>
+            <motion.h2
+              variants={fadeInUp}
+              custom={1}
+              className="text-3xl sm:text-4xl font-bold mb-4"
+            >
+              What People <span className="gradient-text">Say</span>
+            </motion.h2>
+            <motion.p
+              variants={fadeInUp}
+              custom={2}
+              className="text-muted-foreground max-w-xl mx-auto"
+            >
+              Hear from winners, voters, and partners who love BeautyVote.
+            </motion.p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+            {testimonials.map((testimonial, i) => (
+              <motion.div
+                key={testimonial.name}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.15 }}
+              >
+                <Card className="h-full rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 bg-card p-6 sm:p-8 flex flex-col">
+                  {/* Quote icon */}
+                  <Quote className="w-10 h-10 text-primary/20 mb-4 shrink-0" />
+
+                  {/* Stars */}
+                  <div className="flex gap-1 mb-4">
+                    {Array.from({ length: testimonial.rating }).map((_, j) => (
+                      <Star
+                        key={j}
+                        className="w-4 h-4 fill-amber-400 text-amber-400"
+                      />
+                    ))}
+                  </div>
+
+                  {/* Quote text */}
+                  <p className="text-foreground/80 text-sm leading-relaxed mb-6 flex-1">
+                    &ldquo;{testimonial.quote}&rdquo;
+                  </p>
+
+                  {/* Person info */}
+                  <div className="flex items-center gap-3 pt-4 border-t">
+                    <div className="w-12 h-12 rounded-full overflow-hidden shadow-md shrink-0">
+                      <img
+                        src={testimonial.image}
+                        alt={testimonial.name}
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">{testimonial.name}</p>
+                      <p className="text-xs text-muted-foreground">{testimonial.role}</p>
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ==================== 6. HOW IT WORKS ==================== */}
+      <section className="py-16 sm:py-20 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial="hidden"
@@ -468,7 +784,10 @@ export default function HomePage() {
             </motion.p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+          <div className="relative grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 items-stretch">
+            {/* Connecting line (desktop only) */}
+            <div className="hidden md:block absolute top-1/2 left-[20%] right-[20%] -translate-y-1/2 h-0.5 bg-gradient-to-r from-primary/30 via-primary/20 to-primary/30 z-0" />
+
             {steps.map((step, i) => (
               <motion.div
                 key={step.title}
@@ -476,13 +795,28 @@ export default function HomePage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.15 }}
+                className="relative z-10"
               >
-                <Card className="h-full text-center p-8 hover:shadow-xl transition-shadow duration-300 border-0 bg-card group">
-                  <CardContent className="p-0 flex flex-col items-center">
+                <Card className="h-full rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-0 bg-card overflow-hidden group">
+                  {/* Step image */}
+                  <div className="relative h-40 overflow-hidden">
+                    <img
+                      src={step.image}
+                      alt={step.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    {/* Step number badge */}
+                    <div className="absolute top-3 left-3 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center font-bold text-primary text-sm">
+                      {i + 1}
+                    </div>
+                  </div>
+                  <CardContent className="p-6 text-center">
                     <div
-                      className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300`}
+                      className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform duration-300 mx-auto`}
                     >
-                      <step.icon className="w-8 h-8 text-white" />
+                      <step.icon className="w-7 h-7 text-white" />
                     </div>
                     <div className="text-xs font-bold text-primary mb-2 uppercase tracking-wider">
                       Step {i + 1}
@@ -493,14 +827,79 @@ export default function HomePage() {
                     </p>
                   </CardContent>
                 </Card>
+
+                {/* Arrow connector (visible between cards on desktop) */}
+                {i < steps.length - 1 && (
+                  <div className="hidden md:flex absolute -right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/20 items-center justify-center">
+                    <ChevronRight className="w-5 h-5 text-primary" />
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20">
+      {/* ==================== 7. SPONSORS / PARTNERS ==================== */}
+      <section className="py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-100px' }}
+            variants={stagger}
+            className="text-center mb-12"
+          >
+            <motion.p
+              variants={fadeInUp}
+              custom={0}
+              className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4"
+            >
+              Trusted By Industry Leaders
+            </motion.p>
+            <motion.h2
+              variants={fadeInUp}
+              custom={1}
+              className="text-2xl sm:text-3xl font-bold mb-4"
+            >
+              Our <span className="gradient-text">Partners</span>
+            </motion.h2>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8"
+          >
+            {partners.map((partner, i) => (
+              <motion.div
+                key={partner}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.06 }}
+                className="flex items-center justify-center rounded-2xl bg-muted/50 border p-6 sm:p-8 grayscale hover:grayscale-0 transition-all duration-300 hover:shadow-md"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-muted-200 dark:bg-muted-700 flex items-center justify-center">
+                    <span className="text-sm font-bold text-muted-foreground">
+                      {partner.charAt(0)}
+                    </span>
+                  </div>
+                  <span className="text-base sm:text-lg font-bold text-muted-foreground/70 whitespace-nowrap">
+                    {partner}
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ==================== 8. CTA SECTION ==================== */}
+      <section className="py-16 sm:py-20 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -511,6 +910,27 @@ export default function HomePage() {
             {/* Decorative elements */}
             <div className="absolute top-4 left-8 w-20 h-20 bg-white/10 rounded-full blur-xl" />
             <div className="absolute bottom-4 right-8 w-32 h-32 bg-white/10 rounded-full blur-xl" />
+
+            {/* Confetti-like decorative elements */}
+            <div className="absolute top-8 left-[15%] w-3 h-3 rounded-full bg-yellow-300/40 animate-bounce" style={{ animationDelay: '0.2s' }} />
+            <div className="absolute top-12 right-[20%] w-2 h-2 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '0.8s' }} />
+            <div className="absolute bottom-16 left-[25%] w-4 h-4 rounded-full bg-pink-300/30 animate-bounce" style={{ animationDelay: '0.5s' }} />
+            <div className="absolute bottom-10 right-[30%] w-2.5 h-2.5 rounded-full bg-yellow-200/40 animate-bounce" style={{ animationDelay: '1.1s' }} />
+            <div className="absolute top-1/3 left-[8%] w-2 h-6 rounded-sm bg-white/20 rotate-45 animate-bounce" style={{ animationDelay: '0.3s' }} />
+            <div className="absolute top-1/4 right-[12%] w-3 h-3 rounded-sm bg-yellow-300/25 rotate-12 animate-bounce" style={{ animationDelay: '0.9s' }} />
+            <div className="absolute bottom-1/4 left-[40%] w-2 h-2 rounded-full bg-white/25 animate-bounce" style={{ animationDelay: '0.6s' }} />
+            <div className="absolute top-20 right-[40%] w-1.5 h-1.5 rounded-full bg-pink-200/30 animate-bounce" style={{ animationDelay: '1.3s' }} />
+
+            {/* Decorative star shapes */}
+            <div className="absolute top-10 left-[35%] text-yellow-200/30 animate-pulse">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div className="absolute bottom-14 right-[15%] text-yellow-200/25 animate-pulse" style={{ animationDelay: '0.5s' }}>
+              <Star className="w-5 h-5" />
+            </div>
+            <div className="absolute top-1/2 right-[8%] text-white/15 animate-pulse" style={{ animationDelay: '1s' }}>
+              <PartyPopper className="w-8 h-8" />
+            </div>
 
             <div className="relative z-10">
               <motion.div
@@ -550,6 +970,43 @@ export default function HomePage() {
                 </Button>
               </div>
             </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ==================== 9. NEWSLETTER SECTION ==================== */}
+      <section className="py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="max-w-2xl mx-auto text-center"
+          >
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-primary to-amber-500 flex items-center justify-center mb-6 shadow-lg shadow-primary/20">
+              <Mail className="w-7 h-7 text-white" />
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3">
+              Stay <span className="gradient-text">Updated</span>
+            </h2>
+            <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+              Subscribe to our newsletter and never miss a competition update,
+              winner announcement, or exclusive event.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+              <input
+                type="email"
+                placeholder="Enter your email address"
+                className="flex-1 px-5 py-3 rounded-2xl border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm"
+              />
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-2xl shadow-lg shadow-primary/20 font-semibold shrink-0">
+                Subscribe
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              No spam, ever. Unsubscribe at any time.
+            </p>
           </motion.div>
         </div>
       </section>

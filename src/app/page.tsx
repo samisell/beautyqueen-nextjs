@@ -29,6 +29,9 @@ import DashboardSettings from '@/pages/dashboard/DashboardSettings';
 import DashboardNotifications from '@/pages/dashboard/DashboardNotifications';
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import PublicVotingPage from '@/pages/PublicVotingPage';
+import SupportPage from '@/pages/SupportPage';
+import TermsPage from '@/pages/TermsPage';
+import PrivacyPage from '@/pages/PrivacyPage';
 
 import type { PageRoute } from '@/types';
 
@@ -69,6 +72,9 @@ function PageRenderer() {
     'dashboard-notifications': <DashboardNotifications />,
     admin: <AdminDashboard />,
     'public-vote': <PublicVotingPage />,
+    support: <SupportPage />,
+    terms: <TermsPage />,
+    privacy: <PrivacyPage />,
   };
 
   return pageMap[currentPage] || <HomePage />;

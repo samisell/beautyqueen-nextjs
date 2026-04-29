@@ -22,7 +22,10 @@ export type PageRoute =
   | 'dashboard-settings'
   | 'dashboard-notifications'
   | 'admin'
-  | 'public-vote';
+  | 'public-vote'
+  | 'support'
+  | 'terms'
+  | 'privacy';
 
 export interface User {
   id: string;

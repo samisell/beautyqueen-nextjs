@@ -11,9 +11,20 @@ import {
   Phone,
   Search,
   CircleHelp,
+  Star,
+  Play,
+  BookOpen,
+  CreditCard,
+  Vote,
+  Users,
+  Crown,
+  Zap,
+  FileQuestion,
+  Lightbulb,
+  TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
@@ -43,13 +54,14 @@ interface FaqItem {
   question: string;
   answer: string;
   category: FaqCategory;
+  isPopular?: boolean;
 }
 
 const faqCategories: { key: FaqCategory; label: string; icon: typeof HelpCircle }[] = [
   { key: 'general', label: 'General', icon: CircleHelp },
-  { key: 'voting', label: 'Voting', icon: ChevronDown },
-  { key: 'payments', label: 'Payments', icon: Mail },
-  { key: 'tournament', label: 'Tournament', icon: MessageCircle },
+  { key: 'voting', label: 'Voting', icon: Vote },
+  { key: 'payments', label: 'Payments', icon: CreditCard },
+  { key: 'tournament', label: 'Tournament', icon: Crown },
 ];
 
 const faqItems: FaqItem[] = [
@@ -58,12 +70,14 @@ const faqItems: FaqItem[] = [
     answer:
       'BeautyVote is an online beauty voting platform where contestants compete across multiple stages, and the community votes to determine the winner. It features real-time leaderboards, fair voting mechanisms, and amazing cash prizes for winners.',
     category: 'general',
+    isPopular: true,
   },
   {
     question: 'How do I create an account?',
     answer:
       'Click the "Register" button on the top navigation bar. Fill in your name, email, and password. You can also use a referral code from a friend to earn bonus votes. Registration is completely free and takes less than a minute.',
     category: 'general',
+    isPopular: true,
   },
   {
     question: 'Is my personal information safe?',
@@ -88,6 +102,7 @@ const faqItems: FaqItem[] = [
     answer:
       'After casting a vote, you\'ll see a confirmation message and the vote count on the leaderboard will update in real-time. You can also check your vote history in your dashboard to see all the votes you\'ve cast.',
     category: 'voting',
+    isPopular: true,
   },
   {
     question: 'Can I change my vote?',
@@ -98,13 +113,19 @@ const faqItems: FaqItem[] = [
   {
     question: 'What payment methods are accepted?',
     answer:
-      'We accept various payment methods including credit/debit cards, bank transfers, and mobile money. All transactions are processed securely through our payment partners. Payment details are never stored on our servers.',
+      'We accept various payment methods including credit/debit cards (via Flutterwave and Paystack), and bank transfers for offline payments. All transactions are processed securely through our payment partners. Payment details are never stored on our servers.',
     category: 'payments',
   },
   {
     question: 'Are refunds available for purchased votes?',
     answer:
       'Vote purchases are final and non-refundable. Once votes are credited to your account, they cannot be exchanged for cash. Please make sure to choose the right vote package before completing your purchase.',
+    category: 'payments',
+  },
+  {
+    question: 'How much does each vote cost?',
+    answer:
+      'Each vote costs ₦200 (two hundred Naira). You can purchase vote packages in bulk which may include bonus votes for better value. Payments can be made via Flutterwave, Paystack, or direct bank transfer.',
     category: 'payments',
   },
   {
@@ -127,6 +148,33 @@ const faqItems: FaqItem[] = [
   },
 ];
 
+const videoTutorials = [
+  {
+    title: 'How to Vote',
+    description: 'Learn how to navigate the leaderboard and cast your first vote step by step.',
+    icon: Vote,
+    color: 'from-orange-500 to-amber-500',
+    image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&h=400&fit=crop',
+    duration: '3:45',
+  },
+  {
+    title: 'How to Register as Contestant',
+    description: 'Complete guide to joining a tournament, uploading photos, and submitting your profile.',
+    icon: Users,
+    color: 'from-pink-500 to-rose-500',
+    image: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&h=400&fit=crop',
+    duration: '5:20',
+  },
+  {
+    title: 'Payment Guide',
+    description: 'Understanding payment methods, vote packages, and how to complete your purchase.',
+    icon: CreditCard,
+    color: 'from-green-500 to-emerald-500',
+    image: 'https://images.unsplash.com/photo-1556761175-4b46a572b786?w=600&h=400&fit=crop',
+    duration: '4:10',
+  },
+];
+
 export default function FaqPage() {
   const { navigate } = useNavigationStore();
   const [activeCategory, setActiveCategory] = useState<FaqCategory | 'all'>('all');
@@ -142,6 +190,8 @@ export default function FaqPage() {
     return matchesCategory && matchesSearch;
   });
 
+  const popularQuestions = faqItems.filter((item) => item.isPopular);
+
   const groupedFaqs: Record<FaqCategory, FaqItem[]> = {
     general: filteredFaqs.filter((f) => f.category === 'general'),
     voting: filteredFaqs.filter((f) => f.category === 'voting'),
@@ -150,96 +200,163 @@ export default function FaqPage() {
   };
 
   return (
-    <div className="min-h-screen py-12 sm:py-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Hero Section */}
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={stagger}
-          className="text-center mb-14"
-        >
-          <motion.div variants={fadeInUp} custom={0}>
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
-              <HelpCircle className="w-8 h-8 text-primary" />
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden py-16 sm:py-20">
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute top-10 right-1/4 w-72 h-72 bg-primary/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-10 left-1/3 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl" />
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
+            <div className="flex-1 text-center lg:text-left">
+              <motion.div initial="hidden" animate="visible" variants={stagger}>
+                <motion.div variants={fadeInUp} custom={0}>
+                  <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">
+                    <HelpCircle className="w-3 h-3 mr-1" />
+                    Help Center
+                  </Badge>
+                </motion.div>
+                <motion.h1 variants={fadeInUp} custom={1} className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4">
+                  Frequently Asked{' '}
+                  <span className="gradient-text">Questions</span>
+                </motion.h1>
+                <motion.p variants={fadeInUp} custom={2} className="text-muted-foreground max-w-2xl mx-auto lg:mx-0 text-lg">
+                  Find answers to the most common questions about BeautyVote. Can&apos;t
+                  find what you&apos;re looking for? Contact us!
+                </motion.p>
+              </motion.div>
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+              className="hidden lg:block w-72 h-56 rounded-3xl overflow-hidden shadow-2xl"
+            >
+              <img
+                src="https://images.unsplash.com/photo-1556761175-4b46a572b786?w=800&h=500&fit=crop"
+                alt="Help desk"
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Popular Questions Highlight */}
+      <section className="py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-100px' }}
+            variants={stagger}
+            className="mb-8"
+          >
+            <motion.div variants={fadeInUp} custom={0} className="flex items-center gap-2 mb-6">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-bold">Most Asked Questions</h2>
+            </motion.div>
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-100px' }}
+            variants={stagger}
+            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+          >
+            {popularQuestions.map((item, i) => (
+              <motion.div key={i} variants={fadeInUp} custom={i}>
+                <Card className="h-full shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-2xl border-0 overflow-hidden group cursor-pointer relative">
+                  <div className="absolute top-4 right-4 z-10">
+                    <Badge className="bg-primary/90 text-white text-xs shadow-md">
+                      <Star className="w-3 h-3 mr-1" />
+                      Top Asked
+                    </Badge>
+                  </div>
+                  <CardContent className="p-6 pt-8">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary transition-colors">
+                      <FileQuestion className="w-6 h-6 text-primary group-hover:text-white transition-colors" />
+                    </div>
+                    <h3 className="font-bold text-base mb-2">{item.question}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{item.answer}</p>
+                    <span className="inline-flex items-center gap-1 text-primary text-sm font-medium mt-3 group-hover:gap-2 transition-all">
+                      Read more <ArrowRight className="w-3 h-3" />
+                    </span>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Search */}
+      <section className="py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="max-w-2xl mx-auto"
+          >
+            <div className="relative">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                placeholder="Search questions... e.g., payment, voting, account"
+                className="pl-14 h-14 rounded-2xl text-base shadow-lg border-0 bg-background"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
           </motion.div>
-          <motion.h1
-            variants={fadeInUp}
-            custom={1}
-            className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4"
-          >
-            Frequently Asked{' '}
-            <span className="gradient-text">Questions</span>
-          </motion.h1>
-          <motion.p
-            variants={fadeInUp}
-            custom={2}
-            className="text-muted-foreground max-w-2xl mx-auto text-lg"
-          >
-            Find answers to the most common questions about BeautyVote. Can&apos;t
-            find what you&apos;re looking for? Contact us!
-          </motion.p>
-        </motion.div>
+        </div>
+      </section>
 
-        {/* Search */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="max-w-xl mx-auto mb-10"
-        >
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              placeholder="Search questions..."
-              className="pl-12 h-12 rounded-xl text-base"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </motion.div>
-
-        {/* Category Filters */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="flex flex-wrap items-center justify-center gap-2 mb-12"
-        >
-          <Button
-            size="sm"
-            variant={activeCategory === 'all' ? 'default' : 'outline'}
-            className={`rounded-full ${
-              activeCategory === 'all' ? 'bg-primary hover:bg-primary/90' : ''
-            }`}
-            onClick={() => setActiveCategory('all')}
+      {/* Category Filters */}
+      <section className="py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="flex flex-wrap items-center justify-center gap-2"
           >
-            All Questions
-          </Button>
-          {faqCategories.map((cat) => (
             <Button
-              key={cat.key}
               size="sm"
-              variant={activeCategory === cat.key ? 'default' : 'outline'}
-              className={`rounded-full ${
-                activeCategory === cat.key ? 'bg-primary hover:bg-primary/90' : ''
+              variant={activeCategory === 'all' ? 'default' : 'outline'}
+              className={`rounded-full shadow-sm ${
+                activeCategory === 'all' ? 'bg-primary hover:bg-primary/90' : ''
               }`}
-              onClick={() => setActiveCategory(cat.key)}
+              onClick={() => setActiveCategory('all')}
             >
-              <cat.icon className="w-3.5 h-3.5 mr-1" />
-              {cat.label}
+              All Questions
             </Button>
-          ))}
-        </motion.div>
+            {faqCategories.map((cat) => (
+              <Button
+                key={cat.key}
+                size="sm"
+                variant={activeCategory === cat.key ? 'default' : 'outline'}
+                className={`rounded-full shadow-sm ${
+                  activeCategory === cat.key ? 'bg-primary hover:bg-primary/90' : ''
+                }`}
+                onClick={() => setActiveCategory(cat.key)}
+              >
+                <cat.icon className="w-3.5 h-3.5 mr-1" />
+                {cat.label}
+              </Button>
+            ))}
+          </motion.div>
+        </div>
+      </section>
 
-        {/* FAQ Accordion */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="max-w-3xl mx-auto space-y-8"
-        >
+      {/* FAQ Accordion */}
+      <section className="py-12">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           {(activeCategory === 'all'
             ? faqCategories
             : faqCategories.filter((c) => c.key === activeCategory)
@@ -248,7 +365,13 @@ export default function FaqPage() {
             if (items.length === 0) return null;
 
             return (
-              <div key={catGroup.key}>
+              <motion.div
+                key={catGroup.key}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 }}
+              >
                 <div className="flex items-center gap-2 mb-4">
                   <catGroup.icon className="w-5 h-5 text-primary" />
                   <h2 className="text-lg font-bold">{catGroup.label}</h2>
@@ -259,7 +382,7 @@ export default function FaqPage() {
                     {items.length}
                   </Badge>
                 </div>
-                <Card className="border-0 shadow-sm">
+                <Card className="border-0 shadow-lg rounded-2xl">
                   <CardContent className="p-0">
                     <Accordion type="single" collapsible className="w-full">
                       {items.map((item, i) => (
@@ -269,11 +392,11 @@ export default function FaqPage() {
                           className="px-6 border-b last:border-b-0"
                         >
                           <AccordionTrigger className="text-left hover:no-underline py-5">
-                            <span className="pr-4 font-medium">
+                            <span className="pr-4 font-medium text-sm sm:text-base">
                               {item.question}
                             </span>
                           </AccordionTrigger>
-                          <AccordionContent className="text-muted-foreground leading-relaxed pb-5">
+                          <AccordionContent className="text-muted-foreground leading-relaxed pb-5 text-sm">
                             {item.answer}
                           </AccordionContent>
                         </AccordionItem>
@@ -281,7 +404,7 @@ export default function FaqPage() {
                     </Accordion>
                   </CardContent>
                 </Card>
-              </div>
+              </motion.div>
             );
           })}
 
@@ -297,23 +420,101 @@ export default function FaqPage() {
               </p>
             </div>
           )}
-        </motion.div>
+        </div>
+      </section>
 
-        {/* Contact CTA */}
-        <section className="py-20">
+      {/* Video Tutorial Section */}
+      <section className="py-16 sm:py-20 bg-muted/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-100px' }}
+            variants={stagger}
+            className="text-center mb-12"
+          >
+            <motion.div variants={fadeInUp} custom={0}>
+              <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">
+                <Play className="w-3 h-3 mr-1" />
+                Video Tutorials
+              </Badge>
+            </motion.div>
+            <motion.h2 variants={fadeInUp} custom={1} className="text-2xl sm:text-3xl font-bold mb-3">
+              Learn by <span className="gradient-text">Watching</span>
+            </motion.h2>
+            <motion.p variants={fadeInUp} custom={2} className="text-muted-foreground max-w-xl mx-auto">
+              Watch these quick video guides to get started with BeautyVote
+            </motion.p>
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-100px' }}
+            variants={stagger}
+            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+          >
+            {videoTutorials.map((video, i) => (
+              <motion.div key={video.title} variants={fadeInUp} custom={i}>
+                <Card className="h-full shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden border-0 group cursor-pointer">
+                  <div className="h-48 relative overflow-hidden">
+                    <img
+                      src={video.image}
+                      alt={video.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors" />
+                    {/* Play button */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform duration-300">
+                        <Play className="w-7 h-7 text-primary ml-1" />
+                      </div>
+                    </div>
+                    {/* Duration badge */}
+                    <div className="absolute bottom-3 right-3">
+                      <Badge className="bg-black/70 text-white text-xs border-0">
+                        {video.duration}
+                      </Badge>
+                    </div>
+                  </div>
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${video.color} flex items-center justify-center`}>
+                        <video.icon className="w-4 h-4 text-white" />
+                      </div>
+                      <Badge className="text-xs bg-muted text-muted-foreground border-0">Tutorial</Badge>
+                    </div>
+                    <h3 className="font-bold text-base mb-1">{video.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{video.description}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Contact CTA */}
+      <section className="py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <Card className="overflow-hidden border-0">
+            <Card className="overflow-hidden border-0 shadow-2xl rounded-3xl">
               <CardContent className="p-0">
-                <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-10 sm:p-14 text-center">
+                <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-10 sm:p-14 text-center relative">
+                  {/* Decorative elements */}
+                  <div className="absolute top-4 left-8 text-2xl opacity-15">💬</div>
+                  <div className="absolute bottom-4 right-8 text-2xl opacity-15">🤝</div>
+
                   <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
                     <MessageCircle className="w-8 h-8 text-primary" />
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-                    Still Have Questions?
+                    Still Have <span className="gradient-text">Questions?</span>
                   </h2>
                   <p className="text-muted-foreground max-w-lg mx-auto mb-8">
                     Our support team is always ready to help. Reach out to us
@@ -333,10 +534,10 @@ export default function FaqPage() {
                       size="lg"
                       variant="outline"
                       className="px-8 py-6 rounded-2xl font-semibold"
-                      onClick={() => navigate('instruction')}
+                      onClick={() => navigate('support')}
                     >
                       <HelpCircle className="w-5 h-5 mr-2" />
-                      Read Instructions
+                      Support Center
                     </Button>
                   </div>
 
@@ -354,8 +555,8 @@ export default function FaqPage() {
               </CardContent>
             </Card>
           </motion.div>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }
