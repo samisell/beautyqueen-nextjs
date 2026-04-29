@@ -375,3 +375,45 @@ model TaskSubmission {
   @@index([status])
   @@index([createdAt])
 }
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  category  String?
+  message   String
+  isRead    Boolean  @default(false)
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model SupportTicket {
+  id          String   @id @default(cuid())
+  ticketId    String   @unique
+  userId      String?
+  category    String
+  priority    String   @default("medium")
+  subject     String
+  description String
+  attachmentUrl String?
+  status      String   @default("open")
+  adminReply  String?
+  repliedBy   String?
+  repliedAt   DateTime?
+  isReadByUser Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([category])
+  @@index([priority])
+  @@index([status])
+  @@index([createdAt])
+  @@index([ticketId])
+}
