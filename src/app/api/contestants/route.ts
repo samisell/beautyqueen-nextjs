@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { parsePagination } from '@/lib/api-helpers';
+import { paginated, parsePagination, error } from '@/lib/api-helpers';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,16 +11,20 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
 
+    // Build where clause
     const where: Record<string, unknown> = {};
 
     if (category) {
       where.category = category;
     }
     if (status) {
+      if (!['active', 'eliminated', 'winner'].includes(status)) {
+        return error('Invalid status filter. Must be one of: active, eliminated, winner', 400);
+      }
       where.status = status;
     }
     if (search) {
-      where.name = { contains: search, mode: 'insensitive' };
+      where.name = { contains: search.trim(), mode: 'insensitive' };
     }
 
     const [contestants, total] = await Promise.all([
@@ -37,21 +41,9 @@ export async function GET(request: NextRequest) {
       db.contestant.count({ where }),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      data: contestants,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    console.error('List contestants error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
+    return paginated(contestants, { page, limit, total });
+  } catch (err) {
+    console.error('List contestants error:', err);
+    return error('Failed to load contestants', 500);
   }
 }

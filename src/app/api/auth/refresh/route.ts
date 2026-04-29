@@ -1,33 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { verifyRefreshToken, generateAccessToken } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { success, error } from '@/lib/api-helpers';
 
 export async function POST(request: NextRequest) {
   try {
     const refreshToken = request.cookies.get('refreshToken')?.value;
 
     if (!refreshToken) {
-      return NextResponse.json(
-        { success: false, message: 'Refresh token not found' },
-        { status: 401 }
-      );
+      return error('Refresh token not found', 401);
     }
 
     const payload = verifyRefreshToken(refreshToken);
     if (!payload) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid or expired refresh token' },
-        { status: 401 }
-      );
+      return error('Invalid or expired refresh token', 401);
     }
 
-    // Verify user still exists
-    const user = await db.user.findUnique({ where: { id: payload.userId } });
+    // Verify user still exists in DB
+    const user = await db.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true, email: true, role: true, isVerified: true },
+    });
+
     if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'User not found' },
-        { status: 401 }
-      );
+      return error('User account not found', 401);
     }
 
     // Generate new access token
@@ -37,11 +33,7 @@ export async function POST(request: NextRequest) {
       role: user.role,
     });
 
-    const response = NextResponse.json({
-      success: true,
-      data: { token: newAccessToken },
-      message: 'Token refreshed successfully',
-    });
+    const response = success({ token: newAccessToken }, 200, { message: 'Token refreshed successfully' });
 
     response.cookies.set('accessToken', newAccessToken, {
       httpOnly: true,
@@ -52,11 +44,8 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error('Token refresh error:', err);
+    return error('An unexpected error occurred. Please try again.', 500);
   }
 }

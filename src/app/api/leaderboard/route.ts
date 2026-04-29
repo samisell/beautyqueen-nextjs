@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { parsePagination } from '@/lib/api-helpers';
+import { paginated, parsePagination, error } from '@/lib/api-helpers';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,10 +8,24 @@ export async function GET(request: NextRequest) {
     const { page, limit, skip } = parsePagination(searchParams);
 
     const category = searchParams.get('category');
+    const status = searchParams.get('status') || 'active';
+    const search = searchParams.get('search');
 
-    const where: Record<string, unknown> = { status: 'active' };
+    // Validate status filter
+    const validStatuses = ['active', 'eliminated', 'winner', 'all'];
+    if (!validStatuses.includes(status)) {
+      return error('Invalid status filter. Must be one of: active, eliminated, winner, all', 400);
+    }
+
+    const where: Record<string, unknown> = {};
+    if (status !== 'all') {
+      where.status = status;
+    }
     if (category) {
       where.category = category;
+    }
+    if (search) {
+      where.name = { contains: search.trim(), mode: 'insensitive' };
     }
 
     const [contestants, total] = await Promise.all([
@@ -34,21 +48,9 @@ export async function GET(request: NextRequest) {
       votes: c.totalVotes,
     }));
 
-    return NextResponse.json({
-      success: true,
-      data: leaderboard,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    console.error('Leaderboard error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
+    return paginated(leaderboard, { page, limit, total });
+  } catch (err) {
+    console.error('Leaderboard error:', err);
+    return error('Failed to load leaderboard', 500);
   }
 }

@@ -16,6 +16,9 @@ import {
   Check,
   TrendingUp,
   Crown,
+  Clock,
+  ShoppingBag,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +30,47 @@ import { useNavigationStore } from '@/stores/navigation-store';
 import { useVotingStore } from '@/stores/voting-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
-import type { Contestant, VoteStats, VotePackage } from '@/types';
+
+interface Contestant {
+  id: string;
+  name: string;
+  bio?: string;
+  imageUrl: string;
+  category: string;
+  categoryId?: string;
+  status: 'active' | 'eliminated' | 'winner';
+  totalVotes: number;
+  stageId?: string;
+  createdAt: string;
+}
+
+interface VoteStatsData {
+  totalVotes: number;
+  freeVotes: number;
+  paidVotes: number;
+  referralVotes: number;
+  todayVotes: number;
+  userVoted: boolean;
+}
+
+interface VotePackage {
+  id: string;
+  name: string;
+  votes: number;
+  price: number;
+  bonusVotes: number;
+  isPopular: boolean;
+  isActive: boolean;
+  order: number;
+}
+
+interface UserStatsData {
+  totalVotes: number;
+  purchasedVotes: number;
+  availableVotes: number;
+  referralCount: number;
+  referralBonusVotes: number;
+}
 
 export default function VotingPage() {
   const { pageParams, navigate } = useNavigationStore();
@@ -36,14 +79,23 @@ export default function VotingPage() {
   const { incrementVote, markVotedToday, hasVotedToday } = useVotingStore();
 
   const [contestant, setContestant] = useState<Contestant | null>(null);
-  const [voteStats, setVoteStats] = useState<VoteStats | null>(null);
+  const [voteStats, setVoteStats] = useState<VoteStatsData | null>(null);
   const [packages, setPackages] = useState<VotePackage[]>([]);
+  const [userStats, setUserStats] = useState<UserStatsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [votingFree, setVotingFree] = useState(false);
   const [votingPaid, setVotingPaid] = useState(false);
+  const [votingReferral, setVotingReferral] = useState(false);
+  const [purchasingPkgId, setPurchasingPkgId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [voteAnimation, setVoteAnimation] = useState(false);
   const [displayVotes, setDisplayVotes] = useState(0);
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 
   const fetchContestant = useCallback(async () => {
     if (!contestantId) return;
@@ -53,9 +105,11 @@ export default function VotingPage() {
       if (data.success && data.data) {
         setContestant(data.data);
         setDisplayVotes(data.data.totalVotes);
+      } else {
+        setError('Contestant not found');
       }
     } catch {
-      // fallback
+      setError('Failed to load contestant');
     }
   }, [contestantId]);
 
@@ -77,58 +131,75 @@ export default function VotingPage() {
       const res = await fetch('/api/packages');
       const data = await res.json();
       if (data.success && data.data) {
-        setPackages(data.data);
+        setPackages(data.data.filter((p: VotePackage) => p.isActive));
       }
     } catch {
       // fallback
     }
   }, []);
 
+  const fetchUserStats = useCallback(async () => {
+    if (!isAuthenticated || !token) return;
+    try {
+      const res = await fetch('/api/user/stats', { headers });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setUserStats(data.data);
+      }
+    } catch {
+      // fallback
+    }
+  }, [isAuthenticated, token]);
+
   useEffect(() => {
     async function loadAll() {
       setLoading(true);
-      await Promise.all([fetchContestant(), fetchVoteStats(), fetchPackages()]);
+      setError(null);
+      await Promise.all([
+        fetchContestant(),
+        fetchVoteStats(),
+        fetchPackages(),
+        fetchUserStats(),
+      ]);
       setLoading(false);
     }
     loadAll();
-  }, [fetchContestant, fetchVoteStats, fetchPackages]);
+  }, [fetchContestant, fetchVoteStats, fetchPackages, fetchUserStats]);
 
   // Animate vote count
   useEffect(() => {
     if (contestant && displayVotes < contestant.totalVotes) {
+      const diff = contestant.totalVotes - displayVotes;
+      const step = Math.max(1, Math.ceil(diff / 20));
       const timer = setTimeout(() => {
-        setDisplayVotes((prev) => Math.min(prev + 1, contestant.totalVotes));
+        setDisplayVotes((prev) => Math.min(prev + step, contestant.totalVotes));
       }, 30);
       return () => clearTimeout(timer);
     }
   }, [displayVotes, contestant]);
 
-  const handleFreeVote = async () => {
-    if (votingFree || hasVotedToday[contestantId!]) return;
+  const triggerVoteAnimation = () => {
+    setVoteAnimation(true);
+    setTimeout(() => setVoteAnimation(false), 1000);
+  };
 
-    if (!isAuthenticated) {
-      toast.error('Please login to vote');
-      navigate('login');
-      return;
-    }
+  const handleFreeVote = async () => {
+    if (votingFree) return;
+    const localVoted = hasVotedToday[contestantId!];
 
     setVotingFree(true);
     try {
       const res = await fetch('/api/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contestantId,
-          voteType: 'free',
-        }),
+        body: JSON.stringify({ contestantId, voteType: 'free' }),
       });
       const data = await res.json();
 
       if (data.success) {
         incrementVote(contestantId!);
         markVotedToday(contestantId!);
-        setVoteAnimation(true);
-        setTimeout(() => setVoteAnimation(false), 1000);
+        triggerVoteAnimation();
         toast.success('Free vote cast! 🎉');
         fetchVoteStats();
       } else {
@@ -144,27 +215,27 @@ export default function VotingPage() {
   const handlePaidVote = async () => {
     if (votingPaid) return;
 
+    if (!isAuthenticated) {
+      toast.error('Please sign in to use paid votes');
+      navigate('login');
+      return;
+    }
+
     setVotingPaid(true);
     try {
       const res = await fetch('/api/vote', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          contestantId,
-          voteType: 'paid',
-        }),
+        headers,
+        body: JSON.stringify({ contestantId, voteType: 'paid' }),
       });
       const data = await res.json();
 
       if (data.success) {
         incrementVote(contestantId!);
-        setVoteAnimation(true);
-        setTimeout(() => setVoteAnimation(false), 1000);
+        triggerVoteAnimation();
         toast.success('Paid vote cast! ⭐');
         fetchVoteStats();
+        fetchUserStats();
       } else {
         toast.error(data.message || 'Failed to cast paid vote');
       }
@@ -175,51 +246,99 @@ export default function VotingPage() {
     }
   };
 
+  const handleReferralVote = async () => {
+    if (votingReferral) return;
+
+    if (!isAuthenticated) {
+      toast.error('Please sign in to use referral votes');
+      navigate('login');
+      return;
+    }
+
+    setVotingReferral(true);
+    try {
+      const res = await fetch('/api/vote', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ contestantId, voteType: 'referral' }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        incrementVote(contestantId!);
+        triggerVoteAnimation();
+        toast.success('Referral vote cast! 🎁');
+        fetchVoteStats();
+        fetchUserStats();
+      } else {
+        toast.error(data.message || 'Failed to cast referral vote');
+      }
+    } catch {
+      toast.error('Something went wrong');
+    } finally {
+      setVotingReferral(false);
+    }
+  };
+
   const handlePurchase = async (pkg: VotePackage) => {
+    if (purchasingPkgId) return;
+
+    setPurchasingPkgId(pkg.id);
     try {
       const res = await fetch('/api/purchase', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers,
         body: JSON.stringify({ packageId: pkg.id }),
       });
       const data = await res.json();
 
       if (data.success) {
-        toast.success(`${pkg.name} purchased! You received ${pkg.votes + pkg.bonusVotes} votes.`);
+        const totalVotes = pkg.votes + pkg.bonusVotes;
+        toast.success(`${pkg.name} purchased! You received ${totalVotes} votes.`);
+        fetchUserStats();
       } else {
         toast.error(data.message || 'Purchase failed');
       }
     } catch {
       toast.error('Something went wrong');
+    } finally {
+      setPurchasingPkgId(null);
     }
   };
 
   const handleShare = () => {
-    const url = `${window.location.origin}?ref=${contestantId}`;
+    const url = `${window.location.origin}/vote/${contestantId}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
-    toast.success('Link copied to clipboard!');
+    toast.success('Contestant link copied to clipboard!');
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const userVotedToday = voteStats?.userVoted ?? hasVotedToday[contestantId!] ?? false;
+  const availablePaidVotes = userStats?.availableVotes ?? 0;
+  const referralBonusVotes = userStats?.referralBonusVotes ?? 0;
+
+  // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <Skeleton className="h-10 w-40 mb-6" />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1">
-              <Skeleton className="aspect-[3/4] rounded-2xl" />
+      <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
+          <Skeleton className="h-8 w-40 mb-8" />
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-2">
+              <Skeleton className="aspect-[4/5] rounded-2xl" />
             </div>
-            <div className="lg:col-span-2 space-y-4">
+            <div className="lg:col-span-3 space-y-4">
               <Skeleton className="h-10 w-3/4" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-32 rounded-2xl" />
-              <Skeleton className="h-12 rounded-xl" />
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-16 w-full" />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-24 rounded-xl" />
+                ))}
+              </div>
+              <Skeleton className="h-14 rounded-2xl" />
+              <Skeleton className="h-12 rounded-2xl" />
             </div>
           </div>
         </div>
@@ -227,27 +346,42 @@ export default function VotingPage() {
     );
   }
 
-  if (!contestant) {
+  // Error state
+  if (!contestant || error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center py-8 px-4">
         <div className="text-center space-y-4">
           <Crown className="w-16 h-16 text-muted-foreground/30 mx-auto" />
-          <p className="text-lg text-muted-foreground">Contestant not found</p>
-          <Button onClick={() => navigate('leaderboard')}>Back to Leaderboard</Button>
+          <h2 className="text-xl font-semibold">Contestant not found</h2>
+          <p className="text-sm text-muted-foreground">
+            The contestant you&apos;re looking for doesn&apos;t exist or has been removed.
+          </p>
+          <Button onClick={() => navigate('leaderboard')} className="rounded-xl">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Leaderboard
+          </Button>
         </div>
       </div>
     );
   }
 
-  const hasVoted = hasVotedToday[contestantId!];
+  const priceFormatted = (price: number) =>
+    price.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+  const statusColors: Record<string, string> = {
+    active: 'bg-green-500 text-white',
+    eliminated: 'bg-red-500 text-white',
+    winner: 'bg-amber-500 text-white',
+  };
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-5xl mx-auto">
         {/* Back button */}
         <motion.button
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
           onClick={() => navigate('leaderboard')}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
         >
@@ -255,26 +389,26 @@ export default function VotingPage() {
           Back to Leaderboard
         </motion.button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Contestant Image */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4 }}
-            className="lg:col-span-1"
+            transition={{ duration: 0.5 }}
+            className="lg:col-span-2"
           >
-            <div className="relative aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl shine">
+            <div className="relative aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl">
               <img
                 src={contestant.imageUrl}
                 alt={contestant.name}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
 
               {/* Vote count overlay */}
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="flex items-center gap-2 text-white">
-                  <Heart className="w-5 h-5 fill-red-500 text-red-500" />
+                  <Heart className="w-6 h-6 fill-red-500 text-red-500" />
                   <span className="text-3xl font-bold">{displayVotes.toLocaleString()}</span>
                   <span className="text-white/70 text-sm">votes</span>
                 </div>
@@ -282,15 +416,7 @@ export default function VotingPage() {
 
               {/* Status badge */}
               <div className="absolute top-4 right-4">
-                <Badge
-                  className={
-                    contestant.status === 'active'
-                      ? 'bg-green-500 text-white'
-                      : contestant.status === 'winner'
-                      ? 'bg-amber-500 text-white'
-                      : 'bg-gray-500 text-white'
-                  }
-                >
+                <Badge className={statusColors[contestant.status] || 'bg-gray-500 text-white'}>
                   {contestant.status.charAt(0).toUpperCase() + contestant.status.slice(1)}
                 </Badge>
               </div>
@@ -300,9 +426,9 @@ export default function VotingPage() {
                 {voteAnimation && (
                   <motion.div
                     initial={{ opacity: 0, y: 20, scale: 0.5 }}
-                    animate={{ opacity: 1, y: -60, scale: 1.5 }}
-                    exit={{ opacity: 0, y: -100 }}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+                    animate={{ opacity: 1, y: -80, scale: 1.5 }}
+                    exit={{ opacity: 0, y: -120 }}
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
                   >
                     <Heart className="w-16 h-16 fill-red-500 text-red-500 drop-shadow-lg" />
                   </motion.div>
@@ -315,17 +441,27 @@ export default function VotingPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="lg:col-span-2 space-y-5"
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="lg:col-span-3 space-y-5"
           >
             {/* Name and Category */}
             <div>
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div>
                   <h1 className="text-3xl sm:text-4xl font-bold mb-2">{contestant.name}</h1>
-                  <Badge variant="secondary" className="bg-primary/10 text-primary">
-                    {contestant.category}
-                  </Badge>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="secondary" className="bg-primary/10 text-primary">
+                      {contestant.category}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      <Clock className="w-3 h-3 mr-1" />
+                      Joined{' '}
+                      {new Date(contestant.createdAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </Badge>
+                  </div>
                 </div>
                 <Button
                   variant="outline"
@@ -339,6 +475,7 @@ export default function VotingPage() {
                     <Copy className="w-4 h-4" />
                   )}
                   <Share2 className="w-4 h-4 ml-1" />
+                  Share
                 </Button>
               </div>
 
@@ -347,159 +484,236 @@ export default function VotingPage() {
               )}
             </div>
 
-            {/* Vote Stats */}
+            {/* Vote Stats Grid */}
             {voteStats && (
-              <Card className="border-2 border-primary/10">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-primary" />
-                    Vote Breakdown
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1.5 mb-1">
-                        <Zap className="w-4 h-4 text-primary" />
-                        <span className="text-2xl font-bold">{voteStats.freeVotes}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Free Votes</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      <Trophy className="w-4 h-4 text-primary" />
+                      <span className="text-xl font-bold">{voteStats.totalVotes.toLocaleString()}</span>
                     </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1.5 mb-1">
-                        <Star className="w-4 h-4 text-amber-500" />
-                        <span className="text-2xl font-bold">{voteStats.paidVotes}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Paid Votes</p>
+                    <p className="text-[11px] text-muted-foreground">Total Votes</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      <Zap className="w-4 h-4 text-emerald-500" />
+                      <span className="text-xl font-bold">{voteStats.freeVotes.toLocaleString()}</span>
                     </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1.5 mb-1">
-                        <Gift className="w-4 h-4 text-green-500" />
-                        <span className="text-2xl font-bold">{voteStats.referralVotes}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Referral Votes</p>
+                    <p className="text-[11px] text-muted-foreground">Free Votes</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      <Star className="w-4 h-4 text-blue-500" />
+                      <span className="text-xl font-bold">{voteStats.paidVotes.toLocaleString()}</span>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Today&apos;s votes</span>
-                      <span>{voteStats.todayVotes}</span>
+                    <p className="text-[11px] text-muted-foreground">Paid Votes</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      <TrendingUp className="w-4 h-4 text-amber-500" />
+                      <span className="text-xl font-bold">{voteStats.todayVotes}</span>
                     </div>
-                    <Progress
-                      value={Math.min((voteStats.todayVotes / 50) * 100, 100)}
-                      className="h-2"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+                    <p className="text-[11px] text-muted-foreground">Today</p>
+                  </CardContent>
+                </Card>
+              </div>
             )}
 
             <Separator />
 
-            {/* Vote Buttons */}
+            {/* Vote Actions */}
             <div className="space-y-3">
               {/* Free Vote Button */}
               <motion.div whileTap={{ scale: 0.97 }}>
                 <Button
                   size="lg"
                   className={`w-full h-14 text-lg font-bold rounded-2xl shadow-xl transition-all ${
-                    hasVoted
+                    userVotedToday
                       ? 'bg-green-500 hover:bg-green-500 shadow-green-500/25'
                       : 'bg-gradient-to-r from-primary via-orange-500 to-amber-500 hover:opacity-90 shadow-primary/30'
                   }`}
                   onClick={handleFreeVote}
-                  disabled={votingFree || hasVoted}
+                  disabled={votingFree || userVotedToday}
                 >
                   {votingFree ? (
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   ) : null}
-                  <Heart className={`w-5 h-5 mr-2 ${hasVoted ? 'fill-white' : ''}`} />
-                  {hasVoted ? 'Voted Today ✓' : 'Cast Free Vote'}
+                  <Heart className={`w-5 h-5 mr-2 ${userVotedToday ? 'fill-white' : ''}`} />
+                  {userVotedToday ? 'Voted Today ✓' : 'Cast Free Vote'}
                 </Button>
               </motion.div>
 
-              {/* Paid Vote Button (authenticated only) */}
+              {/* Paid Vote Button */}
               {isAuthenticated && (
                 <motion.div whileTap={{ scale: 0.97 }}>
                   <Button
                     size="lg"
                     variant="outline"
-                    className="w-full h-12 rounded-2xl border-2 border-amber-500/30 text-amber-600 hover:bg-amber-500/5"
+                    className={`w-full h-12 rounded-2xl transition-all ${
+                      availablePaidVotes > 0
+                        ? 'border-2 border-blue-500/30 text-blue-600 hover:bg-blue-500/5'
+                        : 'opacity-60'
+                    }`}
                     onClick={handlePaidVote}
-                    disabled={votingPaid}
+                    disabled={votingPaid || availablePaidVotes <= 0}
                   >
                     {votingPaid ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : null}
                     <Star className="w-4 h-4 mr-2" />
-                    Use Paid Vote
+                    Use Paid Vote{' '}
+                    <Badge
+                      variant="secondary"
+                      className="ml-2 text-xs"
+                    >
+                      {availablePaidVotes} available
+                    </Badge>
                   </Button>
                 </motion.div>
               )}
 
-              {!isAuthenticated && (
-                <p className="text-center text-sm text-muted-foreground">
-                  <button
-                    onClick={() => navigate('login')}
-                    className="text-primary font-medium hover:underline"
+              {/* Referral Vote Button */}
+              {isAuthenticated && referralBonusVotes > 0 && (
+                <motion.div whileTap={{ scale: 0.97 }}>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full h-12 rounded-2xl border-2 border-purple-500/30 text-purple-600 hover:bg-purple-500/5 transition-all"
+                    onClick={handleReferralVote}
+                    disabled={votingReferral}
                   >
-                    Sign in
-                  </button>{' '}
-                  to unlock paid votes and more features
-                </p>
+                    {votingReferral ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : null}
+                    <Gift className="w-4 h-4 mr-2" />
+                    Use Referral Vote{' '}
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {referralBonusVotes} available
+                    </Badge>
+                  </Button>
+                </motion.div>
+              )}
+
+              {/* Not authenticated message */}
+              {!isAuthenticated && (
+                <div className="text-center py-3 px-4 bg-muted rounded-xl">
+                  <p className="text-sm text-muted-foreground">
+                    <button
+                      onClick={() => navigate('login')}
+                      className="text-primary font-medium hover:underline"
+                    >
+                      Sign in
+                    </button>{' '}
+                    to unlock paid votes, referral votes, and more features
+                  </p>
+                </div>
               )}
             </div>
 
             {/* Vote Packages */}
             {packages.length > 0 && (
-              <div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.4 }}
+              >
                 <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                   <Crown className="w-5 h-5 text-primary" />
                   Boost with Vote Packages
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {packages.slice(0, 4).map((pkg) => (
-                    <Card
-                      key={pkg.id}
-                      className={`relative overflow-hidden ${
-                        pkg.isPopular ? 'border-2 border-primary shadow-lg shadow-primary/10' : ''
-                      }`}
-                    >
-                      {pkg.isPopular && (
-                        <div className="absolute top-0 right-0">
-                          <div className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">
-                            POPULAR
+                  {packages.map((pkg) => {
+                    const isPurchasing = purchasingPkgId === pkg.id;
+                    const totalVotes = pkg.votes + pkg.bonusVotes;
+
+                    return (
+                      <Card
+                        key={pkg.id}
+                        className={`relative overflow-hidden transition-all hover:shadow-md ${
+                          pkg.isPopular
+                            ? 'border-2 border-primary shadow-sm shadow-primary/10'
+                            : ''
+                        }`}
+                      >
+                        {pkg.isPopular && (
+                          <div className="absolute top-0 right-0">
+                            <div className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">
+                              POPULAR
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-semibold text-sm">{pkg.name}</h4>
-                          <span className="text-lg font-bold text-primary">${pkg.price}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <Badge variant="secondary" className="text-xs">
-                            {pkg.votes} votes
-                          </Badge>
-                          {pkg.bonusVotes > 0 && (
-                            <Badge className="bg-green-100 text-green-700 text-xs border-0">
-                              +{pkg.bonusVotes} bonus
+                        )}
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold text-sm">{pkg.name}</h4>
+                            <span className="text-lg font-bold text-primary">
+                              {priceFormatted(pkg.price)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Badge variant="secondary" className="text-xs">
+                              {pkg.votes} votes
                             </Badge>
-                          )}
-                        </div>
-                        <Button
-                          size="sm"
-                          className="w-full rounded-xl bg-primary hover:bg-primary/90"
-                          onClick={() => handlePurchase(pkg)}
-                        >
-                          Buy Package
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
+                            {pkg.bonusVotes > 0 && (
+                              <Badge className="bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400 text-xs border-0">
+                                +{pkg.bonusVotes} bonus
+                              </Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              = {totalVotes} total
+                            </span>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="w-full rounded-xl bg-primary hover:bg-primary/90"
+                            onClick={() => handlePurchase(pkg)}
+                            disabled={isPurchasing}
+                          >
+                            {isPurchasing ? (
+                              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                            ) : (
+                              <ShoppingBag className="w-3.5 h-3.5 mr-1.5" />
+                            )}
+                            Buy Package
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
-              </div>
+              </motion.div>
             )}
+
+            {/* Share Section */}
+            <Card className="bg-muted/50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Share2 className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">Share this contestant with friends</span>
+                  </div>
+                  <Button variant="outline" size="sm" className="rounded-xl" onClick={handleShare}>
+                    {copied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 mr-1.5 text-green-500" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 mr-1.5" />
+                        Copy Link
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </motion.div>
         </div>
       </div>

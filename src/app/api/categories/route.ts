@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
+import { success, error } from '@/lib/api-helpers';
 
-export async function GET() {
+export async function GET(_request: NextRequest) {
   try {
     const categories = await db.category.findMany({
       orderBy: { order: 'asc' },
@@ -13,19 +14,17 @@ export async function GET() {
     });
 
     const categoriesWithCount = categories.map((cat) => ({
-      ...cat,
+      id: cat.id,
+      name: cat.name,
+      description: cat.description,
+      icon: cat.icon,
+      order: cat.order,
       contestantCount: cat._count.contestants,
     }));
 
-    return NextResponse.json({
-      success: true,
-      data: categoriesWithCount,
-    });
-  } catch (error) {
-    console.error('List categories error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
+    return success(categoriesWithCount);
+  } catch (err) {
+    console.error('List categories error:', err);
+    return error('Failed to load categories', 500);
   }
 }

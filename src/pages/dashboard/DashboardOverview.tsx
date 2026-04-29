@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Heart,
@@ -14,6 +14,12 @@ import {
   ShoppingBag,
   Share2,
   Vote,
+  CheckCheck,
+  AlertCircle,
+  Info,
+  AlertTriangle,
+  CheckCircle2,
+  TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,86 +31,218 @@ import DashboardSidebar from '@/components/layout/DashboardSidebar';
 import { useNavigationStore } from '@/stores/navigation-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
-import type { UserStats, Notification } from '@/types';
+
+interface RecentVote {
+  id: string;
+  contestantId: string;
+  voteType: 'free' | 'paid' | 'referral';
+  createdAt: string;
+  contestant: { name: string; imageUrl: string };
+}
+
+interface UserStatsData {
+  totalVotes: number;
+  purchasedVotes: number;
+  availableVotes: number;
+  referralCount: number;
+  referralBonusVotes: number;
+  recentVotes: RecentVote[];
+}
+
+interface NotificationData {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'error';
+  isRead: boolean;
+  createdAt: string;
+}
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.08, duration: 0.4 },
+    transition: { delay: i * 0.08, duration: 0.4, ease: 'easeOut' },
   }),
 };
 
+function formatRelativeTime(dateStr: string): string {
+  const now = Date.now();
+  const date = new Date(dateStr).getTime();
+  const diff = now - date;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (seconds < 60) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function getNotifIcon(type: string) {
+  switch (type) {
+    case 'success':
+      return <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />;
+    case 'warning':
+      return <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />;
+    case 'error':
+      return <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />;
+    default:
+      return <Info className="w-5 h-5 text-blue-500 shrink-0" />;
+  }
+}
+
+function getVoteTypeBadge(type: string) {
+  switch (type) {
+    case 'free':
+      return (
+        <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-xs border-0">
+          Free
+        </Badge>
+      );
+    case 'paid':
+      return (
+        <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 text-xs border-0">
+          Paid
+        </Badge>
+      );
+    case 'referral':
+      return (
+        <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 text-xs border-0">
+          Referral
+        </Badge>
+      );
+    default:
+      return <Badge variant="secondary" className="text-xs">{type}</Badge>;
+  }
+}
+
 export default function DashboardOverview() {
   const { navigate } = useNavigationStore();
-  const { user } = useAuthStore();
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { user, token } = useAuthStore();
+  const [stats, setStats] = useState<UserStatsData | null>(null);
+  const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch('/api/user/stats', { headers });
+      const data = await res.json();
+      if (data.success) setStats(data.data);
+    } catch {
+      toast.error('Failed to load stats');
+    }
+  }, [token]);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await fetch('/api/user/notifications?limit=5', { headers });
+      const data = await res.json();
+      if (data.success) {
+        setNotifications(data.data || []);
+        setUnreadCount(data.meta?.unreadCount ?? data.data?.filter((n: NotificationData) => !n.isRead).length ?? 0);
+      }
+    } catch {
+      toast.error('Failed to load notifications');
+    }
+  }, [token]);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      try {
-        const [statsRes, notifRes] = await Promise.all([
-          fetch('/api/user/stats'),
-          fetch('/api/user/notifications'),
-        ]);
-
-        const statsData = await statsRes.json();
-        const notifData = await notifRes.json();
-
-        if (statsData.success) setStats(statsData.data);
-        if (notifData.success) setNotifications(notifData.data || []);
-      } catch {
-        // fallback
-      } finally {
-        setLoading(false);
-      }
+      await Promise.all([fetchStats(), fetchNotifications()]);
+      setLoading(false);
     }
     fetchData();
-  }, []);
+  }, [fetchStats, fetchNotifications]);
+
+  const handleMarkAllRead = async () => {
+    setMarkingAllRead(true);
+    try {
+      const res = await fetch('/api/user/notifications', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ markAllRead: true }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+        setUnreadCount(0);
+        toast.success('All notifications marked as read');
+      } else {
+        toast.error(data.message || 'Failed to mark notifications');
+      }
+    } catch {
+      toast.error('Something went wrong');
+    } finally {
+      setMarkingAllRead(false);
+    }
+  };
 
   const handleShareReferral = () => {
     if (user?.referralCode) {
-      const link = `${window.location.origin}?ref=${user.referralCode}`;
+      const link = `${window.location.origin}/register?ref=${user.referralCode}`;
       navigator.clipboard.writeText(link);
       setCopied(true);
-      toast.success('Referral link copied!');
+      toast.success('Referral link copied to clipboard!');
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 
   const statCards = [
     {
       label: 'Total Votes Cast',
       value: stats?.totalVotes ?? 0,
       icon: Heart,
-      color: 'from-rose-500 to-pink-500',
-      bg: 'bg-rose-50 dark:bg-rose-950/30',
+      iconBg: 'bg-rose-100 dark:bg-rose-950/40',
+      iconColor: 'text-rose-500',
+      accent: 'text-rose-600 dark:text-rose-400',
     },
     {
       label: 'Available Paid Votes',
       value: stats?.availableVotes ?? 0,
       icon: Star,
-      color: 'from-amber-500 to-yellow-500',
-      bg: 'bg-amber-50 dark:bg-amber-950/30',
+      iconBg: 'bg-amber-100 dark:bg-amber-950/40',
+      iconColor: 'text-amber-500',
+      accent: 'text-amber-600 dark:text-amber-400',
     },
     {
-      label: 'Referrals',
+      label: 'My Referrals',
       value: stats?.referralCount ?? 0,
       icon: Users,
-      color: 'from-emerald-500 to-green-500',
-      bg: 'bg-emerald-50 dark:bg-emerald-950/30',
+      iconBg: 'bg-emerald-100 dark:bg-emerald-950/40',
+      iconColor: 'text-emerald-500',
+      accent: 'text-emerald-600 dark:text-emerald-400',
     },
     {
       label: 'Referral Bonus',
       value: stats?.referralBonusVotes ?? 0,
       icon: Gift,
-      color: 'from-violet-500 to-purple-500',
-      bg: 'bg-violet-50 dark:bg-violet-950/30',
+      iconBg: 'bg-purple-100 dark:bg-purple-950/40',
+      iconColor: 'text-purple-500',
+      accent: 'text-purple-600 dark:text-purple-400',
     },
   ];
 
@@ -114,54 +252,43 @@ export default function DashboardOverview() {
       icon: Trophy,
       desc: 'Browse contestants and cast your votes',
       action: () => navigate('leaderboard'),
-      color: 'bg-primary hover:bg-primary/90 text-primary-foreground',
+      iconBg: 'bg-gradient-to-br from-primary to-orange-500',
     },
     {
       label: 'Buy Votes',
       icon: ShoppingBag,
       desc: 'Get more votes with premium packages',
       action: () => navigate('dashboard-purchases'),
-      color: 'bg-amber-500 hover:bg-amber-500/90 text-white',
+      iconBg: 'bg-gradient-to-br from-amber-400 to-amber-600',
     },
     {
-      label: 'Share Referral',
+      label: 'Share Link',
       icon: Share2,
       desc: 'Earn bonus votes by inviting friends',
       action: handleShareReferral,
-      color: 'bg-emerald-500 hover:bg-emerald-500/90 text-white',
+      iconBg: 'bg-gradient-to-br from-emerald-400 to-emerald-600',
     },
   ];
 
-  const getNotifIcon = (type: string) => {
-    switch (type) {
-      case 'success': return '✅';
-      case 'warning': return '⚠️';
-      case 'error': return '❌';
-      default: return '💡';
-    }
-  };
+  const recentVotes = stats?.recentVotes?.slice(0, 5) ?? [];
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
         <div className="flex gap-6">
-          {/* Sidebar */}
           <DashboardSidebar />
-
-          {/* Main Content */}
           <div className="flex-1 min-w-0 space-y-6">
             {/* Greeting */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
             >
               <h1 className="text-2xl sm:text-3xl font-bold">
                 Welcome back,{' '}
                 <span className="gradient-text">{user?.name || 'Voter'}</span>!
               </h1>
-              <p className="text-muted-foreground mt-1">
-                Here&apos;s your voting dashboard overview
-              </p>
+              <p className="text-muted-foreground mt-1">{today}</p>
             </motion.div>
 
             {/* Stats Cards */}
@@ -181,9 +308,10 @@ export default function DashboardOverview() {
                       <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
                         <CardContent className="p-5">
                           <div className="flex items-center justify-between mb-3">
-                            <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
-                              <stat.icon className={`w-5 h-5 bg-gradient-to-r ${stat.color} bg-clip-text`} style={{ color: 'var(--primary)' }} />
+                            <div className={`w-10 h-10 rounded-xl ${stat.iconBg} flex items-center justify-center`}>
+                              <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
                             </div>
+                            <TrendingUp className={`w-4 h-4 ${stat.accent} opacity-60`} />
                           </div>
                           <p className="text-2xl font-bold">{stat.value.toLocaleString()}</p>
                           <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
@@ -197,7 +325,7 @@ export default function DashboardOverview() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
+              transition={{ delay: 0.3, duration: 0.4 }}
             >
               <h2 className="text-lg font-semibold mb-3">Quick Actions</h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -208,15 +336,15 @@ export default function DashboardOverview() {
                     onClick={action.action}
                   >
                     <CardContent className="p-5">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className={`w-10 h-10 rounded-xl ${action.color} flex items-center justify-center shadow-sm`}>
-                          <action.icon className="w-5 h-5" />
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl ${action.iconBg} flex items-center justify-center shadow-sm`}>
+                          <action.icon className="w-5 h-5 text-white" />
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-sm">{action.label}</h3>
-                          <p className="text-xs text-muted-foreground">{action.desc}</p>
+                          <p className="text-xs text-muted-foreground truncate">{action.desc}</p>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all" />
+                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all shrink-0" />
                       </div>
                     </CardContent>
                   </Card>
@@ -224,53 +352,76 @@ export default function DashboardOverview() {
               </div>
             </motion.div>
 
+            {/* Notifications + Recent Activity */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Notifications */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
+                transition={{ delay: 0.4, duration: 0.4 }}
               >
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Bell className="w-5 h-5 text-primary" />
-                      Notifications
-                      {notifications.some((n) => !n.isRead) && (
-                        <Badge className="bg-primary text-primary-foreground ml-auto">
-                          New
-                        </Badge>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Bell className="w-5 h-5 text-primary" />
+                        Notifications
+                        {unreadCount > 0 && (
+                          <Badge className="bg-primary text-primary-foreground text-xs">
+                            {unreadCount}
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      {unreadCount > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                          onClick={handleMarkAllRead}
+                          disabled={markingAllRead}
+                        >
+                          <CheckCheck className="w-3.5 h-3.5 mr-1" />
+                          Mark all read
+                        </Button>
                       )}
-                    </CardTitle>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     {loading ? (
                       <div className="space-y-3">
-                        {Array.from({ length: 3 }).map((_, i) => (
-                          <Skeleton key={i} className="h-16 rounded-xl" />
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="flex items-start gap-3">
+                            <Skeleton className="w-9 h-9 rounded-lg shrink-0" />
+                            <div className="flex-1 space-y-1.5">
+                              <Skeleton className="h-3.5 w-3/4" />
+                              <Skeleton className="h-3 w-full" />
+                            </div>
+                          </div>
                         ))}
                       </div>
                     ) : notifications.length > 0 ? (
                       <ScrollArea className="max-h-96">
-                        <div className="space-y-2">
-                          {notifications.slice(0, 10).map((notif) => (
+                        <div className="space-y-1">
+                          {notifications.map((notif) => (
                             <div
                               key={notif.id}
                               className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${
-                                !notif.isRead ? 'bg-primary/5' : 'hover:bg-muted/50'
+                                !notif.isRead
+                                  ? 'bg-primary/5 border border-primary/10'
+                                  : 'hover:bg-muted/50'
                               }`}
                             >
-                              <span className="text-lg mt-0.5">
-                                {getNotifIcon(notif.type)}
-                              </span>
+                              {getNotifIcon(notif.type)}
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium">{notif.title}</p>
+                                <p className={`text-sm ${!notif.isRead ? 'font-semibold' : 'font-medium'}`}>
+                                  {notif.title}
+                                </p>
                                 <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                                   {notif.message}
                                 </p>
                                 <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
                                   <Clock className="w-3 h-3" />
-                                  {new Date(notif.createdAt).toLocaleDateString()}
+                                  {formatRelativeTime(notif.createdAt)}
                                 </div>
                               </div>
                               {!notif.isRead && (
@@ -294,7 +445,7 @@ export default function DashboardOverview() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
+                transition={{ delay: 0.5, duration: 0.4 }}
               >
                 <Card>
                   <CardHeader className="pb-3">
@@ -306,10 +457,49 @@ export default function DashboardOverview() {
                   <CardContent>
                     {loading ? (
                       <div className="space-y-3">
-                        {Array.from({ length: 3 }).map((_, i) => (
-                          <Skeleton key={i} className="h-16 rounded-xl" />
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="flex items-center gap-3">
+                            <Skeleton className="w-8 h-8 rounded-full shrink-0" />
+                            <div className="flex-1 space-y-1.5">
+                              <Skeleton className="h-3.5 w-2/3" />
+                              <Skeleton className="h-3 w-1/3" />
+                            </div>
+                          </div>
                         ))}
                       </div>
+                    ) : recentVotes.length > 0 ? (
+                      <ScrollArea className="max-h-96">
+                        <div className="space-y-1">
+                          {recentVotes.map((vote) => (
+                            <div
+                              key={vote.id}
+                              className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer"
+                              onClick={() => navigate('vote', { id: vote.contestantId })}
+                            >
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0 overflow-hidden">
+                                {vote.contestant?.imageUrl ? (
+                                  <img
+                                    src={vote.contestant.imageUrl}
+                                    alt={vote.contestant.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  vote.contestant?.name?.charAt(0) || '?'
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">
+                                  {vote.contestant?.name || 'Unknown'}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {formatRelativeTime(vote.createdAt)}
+                                </p>
+                              </div>
+                              {getVoteTypeBadge(vote.voteType)}
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
                     ) : (
                       <div className="text-center py-8">
                         <Heart className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />

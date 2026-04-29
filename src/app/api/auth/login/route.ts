@@ -1,69 +1,69 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { generateAccessToken, generateRefreshToken } from '@/lib/auth';
+import { success, error, rateLimit, getClientIp, isValidEmail } from '@/lib/api-helpers';
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 10 requests/min/IP
+    const ip = getClientIp(request);
+    if (!rateLimit(ip, 10)) {
+      return error('Too many login attempts. Please try again later.', 429);
+    }
+
     const body = await request.json();
     const { email, password } = body;
 
-    if (!email || !password) {
-      return NextResponse.json(
-        { success: false, message: 'Email and password are required' },
-        { status: 400 }
-      );
+    // --- Input validation ---
+    if (!email || typeof email !== 'string') {
+      return error('Email is required');
+    }
+    if (!isValidEmail(email.trim())) {
+      return error('Please provide a valid email address');
+    }
+    if (!password || typeof password !== 'string') {
+      return error('Password is required');
     }
 
-    // Find user
-    const user = await db.user.findUnique({ where: { email } });
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // --- Find user ---
+    const user = await db.user.findUnique({ where: { email: normalizedEmail } });
+
+    // Generic message for both "not found" and "wrong password"
     if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid email or password' },
-        { status: 401 }
-      );
+      return error('Invalid email or password', 401);
     }
 
-    // Verify password
+    // --- Verify password ---
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid email or password' },
-        { status: 401 }
-      );
+      return error('Invalid email or password', 401);
     }
 
-    // Generate JWT tokens
+    // --- Generate tokens ---
     const tokenPayload = {
       userId: user.id,
       email: user.email,
       role: user.role,
     };
-
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
-    // Set tokens in cookies
-    const response = NextResponse.json(
-      {
-        success: true,
-        data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            avatar: user.avatar,
-            isVerified: user.isVerified,
-            referralCode: user.referralCode,
-            createdAt: user.createdAt,
-          },
-          token: accessToken,
-          refreshToken,
-        },
-        message: 'Login successful',
-      }
-    );
+    // --- Build response with cookies ---
+    const sanitizedUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      avatar: user.avatar,
+      isVerified: user.isVerified,
+      referralCode: user.referralCode,
+      createdAt: user.createdAt,
+    };
+
+    const response = success({ user: sanitizedUser, token: accessToken });
 
     response.cookies.set('accessToken', accessToken, {
       httpOnly: true,
@@ -82,11 +82,8 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error('Login error:', err);
+    return error('An unexpected error occurred. Please try again.', 500);
   }
 }

@@ -1,66 +1,89 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { getUserFromRequest } from '@/lib/api-helpers';
+import { success, error, parsePagination, getUserFromRequest } from '@/lib/api-helpers';
 
 export async function GET(request: NextRequest) {
   try {
-    const { user, error } = await getUserFromRequest(request);
-    if (error) return error;
+    const { user, error: authError } = await getUserFromRequest(request);
+    if (authError) return authError;
 
-    const notifications = await db.notification.findMany({
-      where: { userId: user!.userId },
-      orderBy: { createdAt: 'desc' },
-    });
+    const { searchParams } = new URL(request.url);
+    const { page, limit, skip } = parsePagination(searchParams);
+    const isReadFilter = searchParams.get('isRead');
+
+    // Validate isRead filter
+    const where: Record<string, unknown> = { userId: user.userId };
+    if (isReadFilter !== null && isReadFilter !== '') {
+      if (isReadFilter !== 'true' && isReadFilter !== 'false') {
+        return error('Invalid isRead filter. Must be "true" or "false"', 400);
+      }
+      where.isRead = isReadFilter === 'true';
+    }
+
+    const [notifications, total, unreadCount] = await Promise.all([
+      db.notification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      db.notification.count({ where }),
+      db.notification.count({ where: { userId: user.userId, isRead: false } }),
+    ]);
 
     return NextResponse.json({
       success: true,
       data: notifications,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+      unreadCount,
     });
-  } catch (error) {
-    console.error('Get notifications error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error('Get notifications error:', err);
+    return error('Failed to load notifications', 500);
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    const { user, error } = await getUserFromRequest(request);
-    if (error) return error;
+    const { user, error: authError } = await getUserFromRequest(request);
+    if (authError) return authError;
 
     const body = await request.json();
-    const { notificationId, markAllAsRead } = body;
+    const { notificationId, markAllRead } = body;
 
-    if (markAllAsRead) {
-      await db.notification.updateMany({
-        where: { userId: user!.userId, isRead: false },
+    // Mark all as read
+    if (markAllRead === true || markAllRead === 'true') {
+      const result = await db.notification.updateMany({
+        where: { userId: user.userId, isRead: false },
         data: { isRead: true },
       });
 
-      return NextResponse.json({
-        success: true,
+      return success({
         message: 'All notifications marked as read',
+        updatedCount: result.count,
       });
     }
 
-    if (!notificationId) {
-      return NextResponse.json(
-        { success: false, message: 'Notification ID is required' },
-        { status: 400 }
-      );
+    // Mark single notification as read
+    if (!notificationId || typeof notificationId !== 'string') {
+      return error('Notification ID is required', 400);
     }
 
     const notification = await db.notification.findFirst({
-      where: { id: notificationId, userId: user!.userId },
+      where: { id: notificationId, userId: user.userId },
     });
 
     if (!notification) {
-      return NextResponse.json(
-        { success: false, message: 'Notification not found' },
-        { status: 404 }
-      );
+      return error('Notification not found', 404);
+    }
+
+    if (notification.isRead) {
+      return success({ message: 'Notification already read' });
     }
 
     await db.notification.update({
@@ -68,15 +91,9 @@ export async function PUT(request: NextRequest) {
       data: { isRead: true },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Notification marked as read',
-    });
-  } catch (error) {
-    console.error('Mark notification error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
+    return success({ message: 'Notification marked as read' });
+  } catch (err) {
+    console.error('Update notification error:', err);
+    return error('Failed to update notification', 500);
   }
 }

@@ -1,123 +1,143 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { db } from '@/lib/db';
+import { db, withTransaction } from '@/lib/db';
 import { generateAccessToken, generateRefreshToken } from '@/lib/auth';
-import { generateReferralCode } from '@/lib/api-helpers';
+import {
+  success,
+  error,
+  rateLimit,
+  getClientIp,
+  generateReferralCode,
+  isValidEmail,
+  isValidPassword,
+} from '@/lib/api-helpers';
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 5 requests/min/IP
+    const ip = getClientIp(request);
+    if (!rateLimit(ip, 5)) {
+      return error('Too many registration attempts. Please try again later.', 429);
+    }
+
     const body = await request.json();
     const { email, password, name, referralCode } = body;
 
-    if (!email || !password || !name) {
-      return NextResponse.json(
-        { success: false, message: 'Email, password, and name are required' },
-        { status: 400 }
-      );
+    // --- Input validation ---
+    if (!email || typeof email !== 'string') {
+      return error('Email is required');
+    }
+    if (!isValidEmail(email.trim())) {
+      return error('Please provide a valid email address');
+    }
+    if (!password || typeof password !== 'string') {
+      return error('Password is required');
+    }
+    const passwordCheck = isValidPassword(password);
+    if (!passwordCheck.valid) {
+      return error(passwordCheck.errors[0], 400);
+    }
+    if (!name || typeof name !== 'string') {
+      return error('Name is required');
+    }
+    const trimmedName = name.trim();
+    if (trimmedName.length < 2 || trimmedName.length > 100) {
+      return error('Name must be between 2 and 100 characters');
     }
 
-    // Check if user already exists
-    const existingUser = await db.user.findUnique({ where: { email } });
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // --- Check email uniqueness ---
+    const existingUser = await db.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
-      return NextResponse.json(
-        { success: false, message: 'Email already registered' },
-        { status: 409 }
-      );
+      return error('An account with this email already exists', 409);
     }
 
-    // Validate referral code if provided
+    // --- Validate referral code if provided ---
     let referredBy: string | null = null;
-    if (referralCode) {
-      const referrer = await db.user.findUnique({
-        where: { referralCode },
-      });
-      if (!referrer) {
-        return NextResponse.json(
-          { success: false, message: 'Invalid referral code' },
-          { status: 400 }
-        );
+    if (referralCode && typeof referralCode === 'string') {
+      const trimmedCode = referralCode.trim();
+      if (trimmedCode) {
+        const referrer = await db.user.findUnique({ where: { referralCode: trimmedCode } });
+        if (!referrer) {
+          return error('Invalid referral code', 400);
+        }
+        referredBy = referrer.id;
       }
-      referredBy = referrer.id;
     }
 
-    // Hash password
+    // --- Hash password ---
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Generate unique referral code
+    // --- Generate unique referral code ---
     let newReferralCode = generateReferralCode();
-    let codeExists = await db.user.findUnique({
-      where: { referralCode: newReferralCode },
-    });
-    while (codeExists) {
+    let codeExists = await db.user.findUnique({ where: { referralCode: newReferralCode } });
+    let attempts = 0;
+    while (codeExists && attempts < 10) {
       newReferralCode = generateReferralCode();
-      codeExists = await db.user.findUnique({
-        where: { referralCode: newReferralCode },
-      });
+      codeExists = await db.user.findUnique({ where: { referralCode: newReferralCode } });
+      attempts++;
+    }
+    if (codeExists) {
+      return error('Failed to generate unique referral code. Please try again.', 500);
     }
 
-    // Create user
-    const user = await db.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        referralCode: newReferralCode,
-        referredBy,
-      },
+    // --- Create user + referral + notification in a transaction ---
+    const user = await withTransaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          email: normalizedEmail,
+          password: hashedPassword,
+          name: trimmedName,
+          referralCode: newReferralCode,
+          referredBy,
+        },
+      });
+
+      if (referredBy) {
+        await tx.referral.create({
+          data: {
+            referrerId: referredBy,
+            referredId: newUser.id,
+            bonusVotes: 5,
+          },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: referredBy,
+            title: 'New Referral!',
+            message: `${trimmedName} signed up using your referral code. You earned 5 bonus votes!`,
+            type: 'success',
+          },
+        });
+      }
+
+      return newUser;
     });
 
-    // Create referral record if applicable
-    if (referredBy) {
-      await db.referral.create({
-        data: {
-          referrerId: referredBy,
-          referredId: user.id,
-          bonusVotes: 5,
-        },
-      });
-
-      // Create notification for referrer
-      await db.notification.create({
-        data: {
-          userId: referredBy,
-          title: 'New Referral!',
-          message: `${name} signed up using your referral code. You earned 5 bonus votes!`,
-          type: 'success',
-        },
-      });
-    }
-
-    // Generate JWT tokens
+    // --- Generate tokens ---
     const tokenPayload = {
       userId: user.id,
       email: user.email,
       role: user.role,
     };
-
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
-    // Set tokens in cookies
-    const response = NextResponse.json(
-      {
-        success: true,
-        data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            avatar: user.avatar,
-            isVerified: user.isVerified,
-            referralCode: user.referralCode,
-            createdAt: user.createdAt,
-          },
-          token: accessToken,
-        },
-        message: 'Registration successful',
-      },
-      { status: 201 }
-    );
+    // --- Build response with cookies ---
+    const sanitizedUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      avatar: user.avatar,
+      isVerified: user.isVerified,
+      referralCode: user.referralCode,
+      createdAt: user.createdAt,
+    };
+
+    const response = success({ user: sanitizedUser, token: accessToken }, 201);
 
     response.cookies.set('accessToken', accessToken, {
       httpOnly: true,
@@ -136,11 +156,8 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {
-    console.error('Registration error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error('Registration error:', err);
+    return error('An unexpected error occurred. Please try again.', 500);
   }
 }

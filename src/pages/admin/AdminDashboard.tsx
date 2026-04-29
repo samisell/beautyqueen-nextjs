@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { format, parseISO } from 'date-fns';
 import {
   Users,
   Crown,
@@ -10,16 +11,37 @@ import {
   TrendingUp,
   Activity,
   Shield,
-  UserPlus,
   BarChart3,
-  Trophy,
+  Search,
+  Plus,
+  Pencil,
+  Trash2,
+  Play,
   Calendar,
-  ArrowUpRight,
+  Star,
+  Package,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  AlertTriangle,
+  RefreshCw,
+  Zap,
+  UserCheck,
+  Trophy,
+  X,
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Table,
   TableBody,
@@ -28,132 +50,658 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import DashboardSidebar from '@/components/layout/DashboardSidebar';
 import { useNavigationStore } from '@/stores/navigation-store';
 import { useAuthStore } from '@/stores/auth-store';
-import type { AdminStats, TournamentStage } from '@/types';
+import { toast } from 'sonner';
+
+// ──────────────────────────────────────────────
+// Types
+// ──────────────────────────────────────────────
+
+interface AdminStatsData {
+  totalUsers: number;
+  totalContestants: number;
+  totalVotes: number;
+  totalRevenue: number;
+  votesToday: number;
+  newUsersToday: number;
+  activeStage: {
+    id: string;
+    name: string;
+    status: string;
+    contestantCount: number;
+  } | null;
+  topContestants: {
+    id: string;
+    name: string;
+    totalVotes: number;
+    category: string;
+    status: string;
+    imageUrl: string;
+  }[];
+  recentActivity: {
+    id: string;
+    userId: string;
+    contestantId: string;
+    voteType: string;
+    createdAt: string;
+    user: { name: string };
+    contestant: { name: string; imageUrl: string };
+  }[];
+}
+
+interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  isVerified: boolean;
+  referralCode: string;
+  createdAt: string;
+  _count: { votes: number; sentReferrals: number };
+}
+
+interface ContestantItem {
+  id: string;
+  name: string;
+  bio?: string;
+  imageUrl: string;
+  category?: string;
+  categoryId?: string;
+  status: string;
+  totalVotes: number;
+  stageId?: string;
+}
+
+interface StageItem {
+  id: string;
+  name: string;
+  description?: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  order: number;
+  maxContestants?: number;
+  contestantCount?: number;
+}
+
+interface PackageItem {
+  id: string;
+  name: string;
+  votes: number;
+  price: number;
+  bonusVotes: number;
+  isPopular: boolean;
+  isActive: boolean;
+  order: number;
+}
+
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+// ──────────────────────────────────────────────
+// Animation Variants
+// ──────────────────────────────────────────────
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.08, duration: 0.4 },
+    transition: { delay: i * 0.06, duration: 0.4 },
   }),
 };
 
-// Simple mock chart component using divs since recharts may be heavy
-function SimpleBarChart({ data, label }: { data: number[]; label: string }) {
-  const max = Math.max(...data, 1);
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
+};
+
+// ──────────────────────────────────────────────
+// Status Helpers
+// ──────────────────────────────────────────────
+
+function statusBadge(status: string) {
+  const map: Record<string, { variant: string; label: string }> = {
+    active: { variant: 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20', label: 'Active' },
+    eliminated: { variant: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/20', label: 'Eliminated' },
+    upcoming: { variant: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/20', label: 'Upcoming' },
+    completed: { variant: 'bg-gray-500/15 text-gray-700 dark:text-gray-400 border-gray-500/20', label: 'Completed' },
+    winner: { variant: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20', label: 'Winner' },
+  };
+  const item = map[status] || { variant: 'bg-muted text-muted-foreground', label: status };
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <div className="flex items-end gap-1.5 h-32">
-        {data.map((value, i) => (
-          <motion.div
-            key={i}
-            initial={{ height: 0 }}
-            animate={{ height: `${(value / max) * 100}%` }}
-            transition={{ delay: i * 0.05, duration: 0.4 }}
-            className="flex-1 bg-gradient-to-t from-primary to-amber-400 rounded-t-md min-h-[4px]"
-          />
-        ))}
-      </div>
-      <div className="flex justify-between text-[10px] text-muted-foreground">
-        <span>Mon</span>
-        <span>Tue</span>
-        <span>Wed</span>
-        <span>Thu</span>
-        <span>Fri</span>
-        <span>Sat</span>
-        <span>Sun</span>
-      </div>
-    </div>
+    <Badge variant="outline" className={item.variant}>
+      {item.label}
+    </Badge>
   );
 }
+
+function roleBadge(role: string) {
+  if (role === 'admin') {
+    return (
+      <Badge className="bg-primary/15 text-primary border-primary/20">
+        <Shield className="w-3 h-3 mr-1" />Admin
+      </Badge>
+    );
+  }
+  return <Badge variant="secondary">User</Badge>;
+}
+
+function voteTypeBadge(type: string) {
+  const map: Record<string, { cls: string; icon: typeof Heart }> = {
+    free: { cls: 'bg-green-500/15 text-green-700 dark:text-green-400', icon: Heart },
+    paid: { cls: 'bg-blue-500/15 text-blue-700 dark:text-blue-400', icon: Zap },
+    referral: { cls: 'bg-purple-500/15 text-purple-700 dark:text-purple-400', icon: Users },
+  };
+  const item = map[type] || { cls: 'bg-muted text-muted-foreground', icon: Activity };
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${item.cls}`}>
+      <item.icon className="w-3 h-3" />
+      {type}
+    </span>
+  );
+}
+
+function formatCurrency(amount: number) {
+  return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+}
+
+function formatDate(dateStr: string) {
+  try {
+    return format(parseISO(dateStr), 'MMM d, yyyy');
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatDateTime(dateStr: string) {
+  try {
+    return format(parseISO(dateStr), 'MMM d, yyyy h:mm a');
+  } catch {
+    return dateStr;
+  }
+}
+
+function timeAgo(dateStr: string) {
+  try {
+    const diff = Date.now() - parseISO(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  } catch {
+    return '';
+  }
+}
+
+// ──────────────────────────────────────────────
+// Main Component
+// ──────────────────────────────────────────────
 
 export default function AdminDashboard() {
   const { navigate } = useNavigationStore();
   const { user, token } = useAuthStore();
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [recentActivity, setRecentActivity] = useState<
-    { id: string; action: string; detail: string; time: string }[]
-  >([]);
+  const [activeTab, setActiveTab] = useState('overview');
 
-  useEffect(() => {
-    async function fetchStats() {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/admin/stats', {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        const data = await res.json();
-        if (data.success) {
-          setStats(data.data);
-        }
-      } catch {
-        // fallback
-      } finally {
-        setLoading(false);
-      }
+  // Data states
+  const [stats, setStats] = useState<AdminStatsData | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Contestants states
+  const [contestants, setContestants] = useState<ContestantItem[]>([]);
+  const [contestantsLoading, setContestantsLoading] = useState(true);
+  const [contestantsSearch, setContestantsSearch] = useState('');
+  const [contestantsPagination, setContestantsPagination] = useState<Pagination | null>(null);
+  const [contestantsPage, setContestantsPage] = useState(1);
+  const [contestantDialogOpen, setContestantDialogOpen] = useState(false);
+  const [editingContestant, setEditingContestant] = useState<ContestantItem | null>(null);
+  const [contestantForm, setContestantForm] = useState({ name: '', imageUrl: '', bio: '', category: '', status: 'active' });
+  const [contestantSubmitting, setContestantSubmitting] = useState(false);
+  const [deleteContestantId, setDeleteContestantId] = useState<string | null>(null);
+  const [deleteContestantLoading, setDeleteContestantLoading] = useState(false);
+
+  // Users states
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersSearch, setUsersSearch] = useState('');
+  const [usersPagination, setUsersPagination] = useState<Pagination | null>(null);
+  const [usersPage, setUsersPage] = useState(1);
+
+  // Tournament states
+  const [stages, setStages] = useState<StageItem[]>([]);
+  const [stagesLoading, setStagesLoading] = useState(true);
+  const [stageDialogOpen, setStageDialogOpen] = useState(false);
+  const [editingStage, setEditingStage] = useState<StageItem | null>(null);
+  const [stageForm, setStageForm] = useState({
+    name: '',
+    description: '',
+    startDate: '',
+    endDate: '',
+    status: 'upcoming',
+    order: 1,
+    maxContestants: '',
+  });
+  const [stageSubmitting, setStageSubmitting] = useState(false);
+  const [activatingStage, setActivatingStage] = useState<string | null>(null);
+
+  // Packages states
+  const [packages, setPackages] = useState<PackageItem[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(true);
+  const [packageDialogOpen, setPackageDialogOpen] = useState(false);
+  const [packageForm, setPackageForm] = useState({
+    name: '',
+    votes: '',
+    price: '',
+    bonusVotes: '',
+    isPopular: false,
+    isActive: true,
+    order: 1,
+  });
+  const [packageSubmitting, setPackageSubmitting] = useState(false);
+  const [togglingPackageId, setTogglingPackageId] = useState<string | null>(null);
+
+  const headers = useCallback(() => ({
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  }), [token]);
+
+  // ──────────────────────────────────────────────
+  // Fetch Functions
+  // ──────────────────────────────────────────────
+
+  const fetchStats = useCallback(async (signal?: AbortSignal) => {
+    setStatsLoading(true);
+    try {
+      const res = await fetch('/api/admin/stats', { headers: headers(), signal });
+      const data = await res.json();
+      if (data.success) setStats(data.data);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      toast.error('Failed to load dashboard stats');
+    } finally {
+      setStatsLoading(false);
     }
-    fetchStats();
-  }, [token]);
+  }, [headers]);
 
-  // Mock activity data
+  const fetchContestants = useCallback(async (page = 1, search = '', signal?: AbortSignal) => {
+    setContestantsLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: '10', search });
+      const res = await fetch(`/api/contestants?${params}`, { headers: headers(), signal });
+      const data = await res.json();
+      if (data.success) {
+        setContestants(data.data || []);
+        setContestantsPagination(data.pagination || null);
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      toast.error('Failed to load contestants');
+    } finally {
+      setContestantsLoading(false);
+    }
+  }, [headers]);
+
+  const fetchUsers = useCallback(async (page = 1, search = '', signal?: AbortSignal) => {
+    setUsersLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: '10', search });
+      const res = await fetch(`/api/admin/users?${params}`, { headers: headers(), signal });
+      const data = await res.json();
+      if (data.success) {
+        setUsers(data.data || []);
+        setUsersPagination(data.pagination || null);
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      toast.error('Failed to load users');
+    } finally {
+      setUsersLoading(false);
+    }
+  }, [headers]);
+
+  const fetchStages = useCallback(async (signal?: AbortSignal) => {
+    setStagesLoading(true);
+    try {
+      const res = await fetch('/api/admin/tournament', { headers: headers(), signal });
+      const data = await res.json();
+      if (data.success) setStages(data.data || []);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      toast.error('Failed to load tournament stages');
+    } finally {
+      setStagesLoading(false);
+    }
+  }, [headers]);
+
+  const fetchPackages = useCallback(async (signal?: AbortSignal) => {
+    setPackagesLoading(true);
+    try {
+      const res = await fetch('/api/admin/packages', { headers: headers(), signal });
+      const data = await res.json();
+      if (data.success) setPackages(data.data || []);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      toast.error('Failed to load vote packages');
+    } finally {
+      setPackagesLoading(false);
+    }
+  }, [headers]);
+
+  // ──────────────────────────────────────────────
+  // Data Fetching by Tab
+  // ──────────────────────────────────────────────
+
   useEffect(() => {
-    setRecentActivity([
-      { id: '1', action: 'New Registration', detail: 'jane@example.com joined', time: '2 min ago' },
-      { id: '2', action: 'Vote Cast', detail: 'Free vote for Contestant #3', time: '5 min ago' },
-      { id: '3', action: 'Purchase', detail: 'Premium Pack ($9.99) purchased', time: '12 min ago' },
-      { id: '4', action: 'New Registration', detail: 'mark@example.com joined via referral', time: '18 min ago' },
-      { id: '5', action: 'Vote Cast', detail: 'Paid vote for Contestant #1', time: '25 min ago' },
-    ]);
-  }, []);
+    const controller = new AbortController();
+    if (activeTab === 'overview') fetchStats(controller.signal);
+    else if (activeTab === 'contestants') fetchContestants(contestantsPage, contestantsSearch, controller.signal);
+    else if (activeTab === 'users') fetchUsers(usersPage, usersSearch, controller.signal);
+    else if (activeTab === 'tournament') fetchStages(controller.signal);
+    else if (activeTab === 'packages') fetchPackages(controller.signal);
+    return () => controller.abort();
+  }, [activeTab, fetchStats, fetchContestants, fetchUsers, fetchStages, fetchPackages]);
 
-  const mockWeeklyVotes = [45, 62, 38, 71, 55, 89, 67];
-  const mockCategoryData = [
-    { name: 'Miss Photogenic', votes: 245 },
-    { name: 'Miss Talent', votes: 189 },
-    { name: 'Miss Popularity', votes: 312 },
-    { name: 'People\'s Choice', votes: 278 },
+  // Search debounced fetches
+  useEffect(() => {
+    if (activeTab !== 'contestants') return;
+    const t = setTimeout(() => {
+      const controller = new AbortController();
+      fetchContestants(1, contestantsSearch, controller.signal);
+      setContestantsPage(1);
+      return () => controller.abort();
+    }, 400);
+    return () => clearTimeout(t);
+  }, [contestantsSearch, activeTab, fetchContestants]);
+
+  useEffect(() => {
+    if (activeTab !== 'users') return;
+    const t = setTimeout(() => {
+      const controller = new AbortController();
+      fetchUsers(1, usersSearch, controller.signal);
+      setUsersPage(1);
+      return () => controller.abort();
+    }, 400);
+    return () => clearTimeout(t);
+  }, [usersSearch, activeTab, fetchUsers]);
+
+  // ──────────────────────────────────────────────
+  // Contestant CRUD
+  // ──────────────────────────────────────────────
+
+  function openAddContestantDialog() {
+    setEditingContestant(null);
+    setContestantForm({ name: '', imageUrl: '', bio: '', category: '', status: 'active' });
+    setContestantDialogOpen(true);
+  }
+
+  function openEditContestantDialog(c: ContestantItem) {
+    setEditingContestant(c);
+    setContestantForm({
+      name: c.name,
+      imageUrl: c.imageUrl,
+      bio: c.bio || '',
+      category: c.category || '',
+      status: c.status,
+    });
+    setContestantDialogOpen(true);
+  }
+
+  async function submitContestant() {
+    if (!contestantForm.name.trim()) { toast.error('Name is required'); return; }
+    setContestantSubmitting(true);
+    try {
+      const url = editingContestant ? `/api/contestants/${editingContestant.id}` : '/api/admin/contestants';
+      const method = editingContestant ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: headers(),
+        body: JSON.stringify(contestantForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(editingContestant ? 'Contestant updated' : 'Contestant created');
+        setContestantDialogOpen(false);
+        fetchContestants(contestantsPage, contestantsSearch);
+        if (activeTab === 'overview') fetchStats();
+      } else {
+        toast.error(data.message || data.error || 'Operation failed');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setContestantSubmitting(false);
+    }
+  }
+
+  async function deleteContestant(id: string) {
+    setDeleteContestantLoading(true);
+    try {
+      const res = await fetch(`/api/contestants/${id}`, {
+        method: 'DELETE',
+        headers: headers(),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Contestant deleted');
+        setDeleteContestantId(null);
+        fetchContestants(contestantsPage, contestantsSearch);
+      } else {
+        toast.error(data.message || data.error || 'Delete failed');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setDeleteContestantLoading(false);
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // Stage CRUD
+  // ──────────────────────────────────────────────
+
+  function openAddStageDialog() {
+    setEditingStage(null);
+    setStageForm({ name: '', description: '', startDate: '', endDate: '', status: 'upcoming', order: stages.length + 1, maxContestants: '' });
+    setStageDialogOpen(true);
+  }
+
+  function openEditStageDialog(s: StageItem) {
+    setEditingStage(s);
+    setStageForm({
+      name: s.name,
+      description: s.description || '',
+      startDate: s.startDate ? s.startDate.split('T')[0] : '',
+      endDate: s.endDate ? s.endDate.split('T')[0] : '',
+      status: s.status,
+      order: s.order,
+      maxContestants: s.maxContestants ? String(s.maxContestants) : '',
+    });
+    setStageDialogOpen(true);
+  }
+
+  async function submitStage() {
+    if (!stageForm.name.trim()) { toast.error('Stage name is required'); return; }
+    setStageSubmitting(true);
+    try {
+      const url = '/api/admin/tournament';
+      const method = editingStage ? 'PUT' : 'POST';
+      const body = editingStage
+        ? { id: editingStage.id, name: stageForm.name, description: stageForm.description || undefined, startDate: stageForm.startDate, endDate: stageForm.endDate, status: stageForm.status, order: stageForm.order, maxContestants: stageForm.maxContestants ? Number(stageForm.maxContestants) : undefined }
+        : { name: stageForm.name, description: stageForm.description || undefined, startDate: stageForm.startDate, endDate: stageForm.endDate, status: stageForm.status, order: stageForm.order, maxContestants: stageForm.maxContestants ? Number(stageForm.maxContestants) : undefined };
+      const res = await fetch(url, { method, headers: headers(), body: JSON.stringify(body) });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(editingStage ? 'Stage updated' : 'Stage created');
+        setStageDialogOpen(false);
+        fetchStages();
+      } else {
+        toast.error(data.message || data.error || 'Operation failed');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setStageSubmitting(false);
+    }
+  }
+
+  async function activateStage(id: string) {
+    setActivatingStage(id);
+    try {
+      const res = await fetch('/api/admin/tournament', {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({ id, status: 'active' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Stage activated');
+        fetchStages();
+        if (activeTab === 'overview') fetchStats();
+      } else {
+        toast.error(data.message || data.error || 'Failed to activate stage');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setActivatingStage(null);
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // Package CRUD
+  // ──────────────────────────────────────────────
+
+  function openAddPackageDialog() {
+    setPackageForm({ name: '', votes: '', price: '', bonusVotes: '', isPopular: false, isActive: true, order: packages.length + 1 });
+    setPackageDialogOpen(true);
+  }
+
+  async function submitPackage() {
+    if (!packageForm.name.trim() || !packageForm.votes || !packageForm.price) {
+      toast.error('Name, votes, and price are required');
+      return;
+    }
+    setPackageSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/packages', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({
+          name: packageForm.name,
+          votes: Number(packageForm.votes),
+          price: Number(packageForm.price),
+          bonusVotes: Number(packageForm.bonusVotes) || 0,
+          isPopular: packageForm.isPopular,
+          isActive: packageForm.isActive,
+          order: packageForm.order,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Package created');
+        setPackageDialogOpen(false);
+        fetchPackages();
+      } else {
+        toast.error(data.message || data.error || 'Failed to create package');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setPackageSubmitting(false);
+    }
+  }
+
+  async function togglePackageActive(id: string, isActive: boolean) {
+    setTogglingPackageId(id);
+    try {
+      const res = await fetch('/api/admin/packages', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ id, isActive: !isActive }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Package ${!isActive ? 'activated' : 'deactivated'}`);
+        fetchPackages();
+      } else {
+        toast.error(data.message || data.error || 'Failed to toggle package');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setTogglingPackageId(null);
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // Mock weekly chart data from real stats
+  // ──────────────────────────────────────────────
+
+  const weeklyChartData = (() => {
+    const totalVotes = stats?.totalVotes || 12340;
+    const votesToday = stats?.votesToday || 156;
+    const seed = [0.08, 0.12, 0.1, 0.14, 0.18, 0.22, 0.16];
+    const base = Math.floor((totalVotes / 30 / 7) * (1 + Math.random() * 0.3));
+    return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => ({
+      day,
+      votes: Math.round(base * (seed[i] + 0.5) + (i === 6 ? votesToday * 0.3 : 0)),
+    }));
+  })();
+
+  const chartConfig = {
+    votes: { label: 'Votes', color: 'var(--chart-1, #f97316)' },
+  };
+
+  // ──────────────────────────────────────────────
+  // Stat Card Definitions
+  // ──────────────────────────────────────────────
+
+  const statCards = [
+    { label: 'Total Users', value: stats?.totalUsers ?? 0, icon: Users, bg: 'bg-primary/10', iconColor: 'text-primary' },
+    { label: 'Total Contestants', value: stats?.totalContestants ?? 0, icon: Crown, bg: 'bg-amber-500/10', iconColor: 'text-amber-600 dark:text-amber-400' },
+    { label: 'Total Votes', value: stats?.totalVotes ?? 0, icon: Heart, bg: 'bg-rose-500/10', iconColor: 'text-rose-600 dark:text-rose-400' },
+    { label: 'Revenue', value: formatCurrency(stats?.totalRevenue ?? 0), icon: DollarSign, bg: 'bg-green-500/10', iconColor: 'text-green-600 dark:text-green-400' },
+    { label: 'Votes Today', value: stats?.votesToday ?? 0, icon: TrendingUp, bg: 'bg-blue-500/10', iconColor: 'text-blue-600 dark:text-blue-400' },
+    { label: 'New Users Today', value: stats?.newUsersToday ?? 0, icon: UserCheck, bg: 'bg-purple-500/10', iconColor: 'text-purple-600 dark:text-purple-400' },
   ];
 
-  const adminStatCards = [
-    {
-      label: 'Total Users',
-      value: stats?.totalUsers ?? 0,
-      icon: Users,
-      color: 'from-blue-500 to-cyan-500',
-      bg: 'bg-blue-50 dark:bg-blue-950/30',
-      change: '+12%',
-    },
-    {
-      label: 'Total Contestants',
-      value: stats?.totalContestants ?? 0,
-      icon: Crown,
-      color: 'from-primary to-orange-500',
-      bg: 'bg-orange-50 dark:bg-orange-950/30',
-      change: '+3',
-    },
-    {
-      label: 'Total Votes',
-      value: stats?.totalVotes ?? 0,
-      icon: Heart,
-      color: 'from-rose-500 to-pink-500',
-      bg: 'bg-rose-50 dark:bg-rose-950/30',
-      change: '+156 today',
-    },
-    {
-      label: 'Revenue',
-      value: `$${(stats?.totalRevenue ?? 0).toLocaleString()}`,
-      icon: DollarSign,
-      color: 'from-emerald-500 to-green-500',
-      bg: 'bg-emerald-50 dark:bg-emerald-950/30',
-      change: '+$42.50',
-    },
-  ];
+  // ──────────────────────────────────────────────
+  // Access Denied
+  // ──────────────────────────────────────────────
 
   if (user?.role !== 'admin') {
     return (
@@ -168,12 +716,49 @@ export default function AdminDashboard() {
     );
   }
 
+  // ──────────────────────────────────────────────
+  // Pagination Component
+  // ──────────────────────────────────────────────
+
+  function PaginationControls({ pagination, onPageChange }: { pagination: Pagination | null; onPageChange: (p: number) => void }) {
+    if (!pagination || pagination.totalPages <= 1) return null;
+    return (
+      <div className="flex items-center justify-between pt-4">
+        <p className="text-sm text-muted-foreground">
+          Showing {(pagination.page - 1) * pagination.limit + 1}&ndash;{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pagination.page <= 1}
+            onClick={() => onPageChange(pagination.page - 1)}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <span className="text-sm font-medium">Page {pagination.page} / {pagination.totalPages}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pagination.page >= pagination.totalPages}
+            onClick={() => onPageChange(pagination.page + 1)}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  // Render
+  // ──────────────────────────────────────────────
+
   return (
     <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex gap-6">
           <DashboardSidebar />
-
           <div className="flex-1 min-w-0 space-y-6">
             {/* Header */}
             <motion.div
@@ -191,215 +776,930 @@ export default function AdminDashboard() {
                     Admin
                   </Badge>
                 </div>
-                <p className="text-muted-foreground mt-1">
-                  Platform management and analytics
-                </p>
+                <p className="text-muted-foreground mt-1">Platform management and analytics</p>
               </div>
-              {stats?.activeStage && (
-                <Card className="border-primary/20 bg-primary/5 shrink-0">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Trophy className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Active Stage</p>
-                      <p className="text-sm font-semibold">{stats.activeStage.name}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const controller = new AbortController();
+                  if (activeTab === 'overview') fetchStats(controller.signal);
+                  else if (activeTab === 'contestants') fetchContestants(contestantsPage, contestantsSearch, controller.signal);
+                  else if (activeTab === 'users') fetchUsers(usersPage, usersSearch, controller.signal);
+                  else if (activeTab === 'tournament') fetchStages(controller.signal);
+                  else if (activeTab === 'packages') fetchPackages(controller.signal);
+                }}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
             </motion.div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {loading
-                ? Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-32 rounded-2xl" />
-                  ))
-                : adminStatCards.map((stat, i) => (
-                    <motion.div
-                      key={stat.label}
-                      custom={i}
-                      variants={fadeInUp}
-                      initial="hidden"
-                      animate="visible"
-                    >
-                      <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-                        <CardContent className="p-5">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
-                              <stat.icon className="w-5 h-5 text-primary" />
-                            </div>
-                            <div className="flex items-center gap-1 text-green-600 text-xs font-medium">
-                              <ArrowUpRight className="w-3 h-3" />
-                              {stat.change}
-                            </div>
+            {/* Main Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              <TabsList className="flex-wrap h-auto gap-1">
+                <TabsTrigger value="overview" className="gap-1.5">
+                  <BarChart3 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Overview</span>
+                </TabsTrigger>
+                <TabsTrigger value="contestants" className="gap-1.5">
+                  <Crown className="w-4 h-4" />
+                  <span className="hidden sm:inline">Contestants</span>
+                </TabsTrigger>
+                <TabsTrigger value="users" className="gap-1.5">
+                  <Users className="w-4 h-4" />
+                  <span className="hidden sm:inline">Users</span>
+                </TabsTrigger>
+                <TabsTrigger value="tournament" className="gap-1.5">
+                  <Trophy className="w-4 h-4" />
+                  <span className="hidden sm:inline">Tournament</span>
+                </TabsTrigger>
+                <TabsTrigger value="packages" className="gap-1.5">
+                  <Package className="w-4 h-4" />
+                  <span className="hidden sm:inline">Packages</span>
+                </TabsTrigger>
+              </TabsList>
+
+              {/* ════════════════════════════════════════ */}
+              {/* TAB: OVERVIEW                           */}
+              {/* ════════════════════════════════════════ */}
+              <TabsContent value="overview">
+                <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+                  {/* Stat Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    {statsLoading
+                      ? Array.from({ length: 6 }).map((_, i) => (
+                          <Skeleton key={i} className="h-28 rounded-xl" />
+                        ))
+                      : statCards.map((stat, i) => {
+                          const Icon = stat.icon;
+                          return (
+                            <motion.div key={stat.label} custom={i} variants={fadeInUp}>
+                              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+                                <CardContent className="p-4">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
+                                      <Icon className={`w-4 h-4 ${stat.iconColor}`} />
+                                    </div>
+                                  </div>
+                                  <p className="text-xl font-bold">
+                                    {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+                                </CardContent>
+                              </Card>
+                            </motion.div>
+                          );
+                        })}
+                  </div>
+
+                  {/* Active Stage */}
+                  {stats?.activeStage && (
+                    <motion.div custom={6} variants={fadeInUp}>
+                      <Card className="border-primary/20 bg-primary/5">
+                        <CardContent className="p-5 flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                            <Trophy className="w-6 h-6 text-primary" />
                           </div>
-                          <p className="text-2xl font-bold">{typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-muted-foreground">Active Tournament Stage</p>
+                            <p className="text-lg font-semibold">{stats.activeStage.name}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20">Live</Badge>
+                            <p className="text-sm text-muted-foreground mt-1">{stats.activeStage.contestantCount} contestants</p>
+                          </div>
                         </CardContent>
                       </Card>
                     </motion.div>
-                  ))}
-            </div>
+                  )}
 
-            {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Votes Over Time */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-              >
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-primary" />
-                      Votes This Week
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <SimpleBarChart data={mockWeeklyVotes} label="Daily vote distribution" />
-                  </CardContent>
-                </Card>
-              </motion.div>
+                  {/* Charts Row */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <motion.div custom={7} variants={fadeInUp}>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-primary" />
+                            Votes This Week
+                          </CardTitle>
+                          <CardDescription>Daily vote distribution across the week</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ChartContainer config={chartConfig} className="h-[240px] w-full">
+                            <BarChart data={weeklyChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                              <XAxis dataKey="day" tickLine={false} axisLine={false} className="text-xs" />
+                              <YAxis tickLine={false} axisLine={false} className="text-xs" />
+                              <ChartTooltip content={<ChartTooltipContent />} />
+                              <Bar dataKey="votes" fill="var(--color-votes)" radius={[6, 6, 0, 0]} />
+                            </BarChart>
+                          </ChartContainer>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
 
-              {/* Category Distribution */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
-              >
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <BarChart3 className="w-5 h-5 text-primary" />
-                      Votes by Category
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {mockCategoryData.map((cat) => (
-                        <div key={cat.name} className="space-y-1.5">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-medium">{cat.name}</span>
-                            <span className="text-muted-foreground">{cat.votes} votes</span>
+                    {/* Top 5 Contestants */}
+                    <motion.div custom={8} variants={fadeInUp}>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Star className="w-4 h-4 text-primary" />
+                            Top 5 Contestants
+                          </CardTitle>
+                          <CardDescription>Leading contestants by total votes</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {statsLoading ? (
+                            <div className="space-y-3">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Skeleton key={i} className="h-10 w-full rounded-lg" />
+                              ))}
+                            </div>
+                          ) : stats?.topContestants?.length ? (
+                            <ScrollArea className="max-h-[220px]">
+                              <div className="space-y-2 pr-2">
+                                {stats.topContestants.map((c, i) => (
+                                  <div key={c.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                                    <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                                      {i + 1}
+                                    </span>
+                                    <img
+                                      src={c.imageUrl}
+                                      alt={c.name}
+                                      className="w-8 h-8 rounded-full object-cover shrink-0"
+                                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/64x64/f97316/fff?text=' + c.name.charAt(0); }}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium truncate">{c.name}</p>
+                                      <p className="text-xs text-muted-foreground">{c.category}</p>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <p className="text-sm font-bold">{c.totalVotes.toLocaleString()}</p>
+                                      <p className="text-[10px] text-muted-foreground">votes</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </ScrollArea>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                              <Crown className="w-10 h-10 mb-2 opacity-30" />
+                              <p className="text-sm">No contestant data yet</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  </div>
+
+                  {/* Recent Activity */}
+                  <motion.div custom={9} variants={fadeInUp}>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-primary" />
+                          Recent Activity
+                        </CardTitle>
+                        <CardDescription>Last 10 voting activities</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {statsLoading ? (
+                          <div className="space-y-3">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                            ))}
                           </div>
-                          <div className="w-full bg-muted rounded-full h-2">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{
-                                width: `${(cat.votes / Math.max(...mockCategoryData.map((c) => c.votes))) * 100}%`,
+                        ) : stats?.recentActivity?.length ? (
+                          <ScrollArea className="max-h-[400px]">
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Voter</TableHead>
+                                    <TableHead>Contestant</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead className="text-right">Time</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {stats.recentActivity.map((a) => (
+                                    <TableRow key={a.id}>
+                                      <TableCell className="font-medium text-sm">{a.user?.name || 'Unknown'}</TableCell>
+                                      <TableCell>
+                                        <div className="flex items-center gap-2">
+                                          <img
+                                            src={a.contestant?.imageUrl}
+                                            alt={a.contestant?.name}
+                                            className="w-6 h-6 rounded-full object-cover"
+                                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/48x48/f97316/fff?text=' + (a.contestant?.name || '?').charAt(0); }}
+                                          />
+                                          <span className="text-sm">{a.contestant?.name || 'Unknown'}</span>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>{voteTypeBadge(a.voteType)}</TableCell>
+                                      <TableCell className="text-sm text-muted-foreground text-right whitespace-nowrap">
+                                        {timeAgo(a.createdAt)}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </ScrollArea>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                            <Activity className="w-10 h-10 mb-2 opacity-30" />
+                            <p className="text-sm">No recent activity</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </motion.div>
+              </TabsContent>
+
+              {/* ════════════════════════════════════════ */}
+              {/* TAB: CONTESTANTS                        */}
+              {/* ════════════════════════════════════════ */}
+              <TabsContent value="contestants">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                  {/* Search + Add */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search contestants by name..."
+                        className="pl-9"
+                        value={contestantsSearch}
+                        onChange={(e) => setContestantsSearch(e.target.value)}
+                      />
+                    </div>
+                    <Button onClick={openAddContestantDialog}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Contestant
+                    </Button>
+                  </div>
+
+                  {/* Table */}
+                  <Card>
+                    <CardContent className="p-0">
+                      {contestantsLoading ? (
+                        <div className="p-6 space-y-3">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                          ))}
+                        </div>
+                      ) : contestants.length > 0 ? (
+                        <>
+                          <ScrollArea>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-[50px]">#</TableHead>
+                                  <TableHead>Name</TableHead>
+                                  <TableHead>Category</TableHead>
+                                  <TableHead>Status</TableHead>
+                                  <TableHead className="text-right">Votes</TableHead>
+                                  <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {contestants.map((c, i) => (
+                                  <TableRow key={c.id}>
+                                    <TableCell className="text-muted-foreground text-sm">{(contestantsPage - 1) * 10 + i + 1}</TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-3">
+                                        <img
+                                          src={c.imageUrl}
+                                          alt={c.name}
+                                          className="w-8 h-8 rounded-full object-cover shrink-0"
+                                          onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/64x64/f97316/fff?text=' + c.name.charAt(0); }}
+                                        />
+                                        <span className="font-medium text-sm">{c.name}</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-sm text-muted-foreground">{c.category || '—'}</TableCell>
+                                    <TableCell>{statusBadge(c.status)}</TableCell>
+                                    <TableCell className="text-right font-semibold text-sm">{(c.totalVotes || 0).toLocaleString()}</TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex items-center justify-end gap-1">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditContestantDialog(c)}>
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-500/10" onClick={() => setDeleteContestantId(c.id)}>
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </ScrollArea>
+                          <div className="p-4">
+                            <PaginationControls
+                              pagination={contestantsPagination}
+                              onPageChange={(p) => {
+                                setContestantsPage(p);
+                                fetchContestants(p, contestantsSearch);
                               }}
-                              transition={{ duration: 0.6, ease: 'easeOut' }}
-                              className="h-2 rounded-full bg-gradient-to-r from-primary to-amber-400"
                             />
                           </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                          <Crown className="w-12 h-12 mb-3 opacity-20" />
+                          <p className="font-medium">No contestants found</p>
+                          <p className="text-sm mt-1">
+                            {contestantsSearch ? 'Try adjusting your search' : 'Add your first contestant to get started'}
+                          </p>
+                          {!contestantsSearch && (
+                            <Button variant="outline" size="sm" className="mt-4" onClick={openAddContestantDialog}>
+                              <Plus className="w-4 h-4 mr-2" />
+                              Add Contestant
+                            </Button>
+                          )}
                         </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </TabsContent>
+
+              {/* ════════════════════════════════════════ */}
+              {/* TAB: USERS                              */}
+              {/* ════════════════════════════════════════ */}
+              <TabsContent value="users">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                  {/* Search */}
+                  <div className="relative max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search users by name or email..."
+                      className="pl-9"
+                      value={usersSearch}
+                      onChange={(e) => setUsersSearch(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Table */}
+                  <Card>
+                    <CardContent className="p-0">
+                      {usersLoading ? (
+                        <div className="p-6 space-y-3">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                          ))}
+                        </div>
+                      ) : users.length > 0 ? (
+                        <>
+                          <ScrollArea>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Name</TableHead>
+                                  <TableHead>Email</TableHead>
+                                  <TableHead>Role</TableHead>
+                                  <TableHead className="text-right">Votes</TableHead>
+                                  <TableHead className="text-right">Referrals</TableHead>
+                                  <TableHead className="text-right">Joined</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {users.map((u) => (
+                                  <TableRow key={u.id}>
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                                          {u.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <span className="font-medium text-sm">{u.name}</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-sm text-muted-foreground">{u.email}</TableCell>
+                                    <TableCell>{roleBadge(u.role)}</TableCell>
+                                    <TableCell className="text-right text-sm font-medium">{u._count?.votes ?? 0}</TableCell>
+                                    <TableCell className="text-right text-sm font-medium">{u._count?.sentReferrals ?? 0}</TableCell>
+                                    <TableCell className="text-right text-sm text-muted-foreground whitespace-nowrap">
+                                      {formatDate(u.createdAt)}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </ScrollArea>
+                          <div className="p-4">
+                            <PaginationControls
+                              pagination={usersPagination}
+                              onPageChange={(p) => {
+                                setUsersPage(p);
+                                fetchUsers(p, usersSearch);
+                              }}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                          <Users className="w-12 h-12 mb-3 opacity-20" />
+                          <p className="font-medium">No users found</p>
+                          <p className="text-sm mt-1">
+                            {usersSearch ? 'Try adjusting your search' : 'No users have registered yet'}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </TabsContent>
+
+              {/* ════════════════════════════════════════ */}
+              {/* TAB: TOURNAMENT                         */}
+              {/* ════════════════════════════════════════ */}
+              <TabsContent value="tournament">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-semibold">Tournament Stages</h2>
+                      <p className="text-sm text-muted-foreground">Manage competition phases and progression</p>
+                    </div>
+                    <Button onClick={openAddStageDialog}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Stage
+                    </Button>
+                  </div>
+
+                  {/* Stages */}
+                  {stagesLoading ? (
+                    <div className="space-y-4">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-32 w-full rounded-xl" />
                       ))}
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
+                  ) : stages.length > 0 ? (
+                    <div className="space-y-3">
+                      {stages.map((stage, i) => (
+                        <motion.div
+                          key={stage.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.08 }}
+                        >
+                          <Card className="hover:shadow-md transition-shadow">
+                            <CardContent className="p-5">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                                {/* Order indicator */}
+                                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 text-sm">
+                                  {stage.order}
+                                </div>
 
-            {/* Quick Actions + Recent Activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Quick Actions */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-              >
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-primary" />
-                      Quick Actions
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start rounded-xl"
-                      onClick={() => navigate('leaderboard')}
-                    >
-                      <Crown className="w-4 h-4 mr-2 text-primary" />
-                      Manage Contestants
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start rounded-xl"
-                    >
-                      <Users className="w-4 h-4 mr-2 text-primary" />
-                      View Users
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start rounded-xl"
-                    >
-                      <BarChart3 className="w-4 h-4 mr-2 text-primary" />
-                      View Reports
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start rounded-xl"
-                    >
-                      <Calendar className="w-4 h-4 mr-2 text-primary" />
-                      Manage Stages
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                                {/* Stage info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className="font-semibold">{stage.name}</h3>
+                                    {statusBadge(stage.status)}
+                                  </div>
+                                  {stage.description && (
+                                    <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{stage.description}</p>
+                                  )}
+                                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="w-3 h-3" />
+                                      {stage.startDate ? formatDate(stage.startDate) : 'TBD'}
+                                    </span>
+                                    <span>→</span>
+                                    <span>
+                                      {stage.endDate ? formatDate(stage.endDate) : 'TBD'}
+                                    </span>
+                                    {stage.contestantCount !== undefined && (
+                                      <span className="flex items-center gap-1">
+                                        <Users className="w-3 h-3" />
+                                        {stage.contestantCount} contestants
+                                      </span>
+                                    )}
+                                    {stage.maxContestants && (
+                                      <span>Max: {stage.maxContestants}</span>
+                                    )}
+                                  </div>
+                                </div>
 
-              {/* Recent Activity */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.45 }}
-                className="lg:col-span-2"
-              >
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-primary" />
-                      Recent Activity
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Action</TableHead>
-                            <TableHead>Detail</TableHead>
-                            <TableHead className="text-right">Time</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {recentActivity.map((activity) => (
-                            <TableRow key={activity.id}>
-                              <TableCell className="font-medium text-sm">
-                                {activity.action}
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {activity.detail}
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground text-right">
-                                {activity.time}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                                {/* Actions */}
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {stage.status !== 'active' && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => activateStage(stage.id)}
+                                      disabled={activatingStage === stage.id}
+                                    >
+                                      {activatingStage === stage.id ? (
+                                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                      ) : (
+                                        <Play className="w-4 h-4 mr-1" />
+                                      )}
+                                      Activate
+                                    </Button>
+                                  )}
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditStageDialog(stage)}>
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
+                  ) : (
+                    <Card>
+                      <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                        <Trophy className="w-12 h-12 mb-3 opacity-20" />
+                        <p className="font-medium">No stages created</p>
+                        <p className="text-sm mt-1">Create your first tournament stage to get started</p>
+                        <Button variant="outline" size="sm" className="mt-4" onClick={openAddStageDialog}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create Stage
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </motion.div>
+              </TabsContent>
+
+              {/* ════════════════════════════════════════ */}
+              {/* TAB: VOTE PACKAGES                      */}
+              {/* ════════════════════════════════════════ */}
+              <TabsContent value="packages">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-semibold">Vote Packages</h2>
+                      <p className="text-sm text-muted-foreground">Manage available vote purchase options</p>
+                    </div>
+                    <Button onClick={openAddPackageDialog}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Package
+                    </Button>
+                  </div>
+
+                  {/* Grid */}
+                  {packagesLoading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={i} className="h-48 rounded-xl" />
+                      ))}
+                    </div>
+                  ) : packages.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {packages.map((pkg, i) => (
+                        <motion.div
+                          key={pkg.id}
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: i * 0.06 }}
+                        >
+                          <Card className={`relative overflow-hidden ${pkg.isPopular ? 'border-primary shadow-lg shadow-primary/10' : ''} ${!pkg.isActive ? 'opacity-60' : ''}`}>
+                            {pkg.isPopular && (
+                              <div className="absolute top-0 right-0">
+                                <div className="bg-primary text-primary-foreground text-[10px] font-bold px-3 py-1 rounded-bl-xl">
+                                  <Star className="w-3 h-3 inline mr-1" />
+                                  Popular
+                                </div>
+                              </div>
+                            )}
+                            <CardContent className="p-5">
+                              <div className="mb-3">
+                                <h3 className="font-semibold text-lg">{pkg.name}</h3>
+                              </div>
+                              <div className="space-y-2 mb-4">
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-2xl font-bold">{pkg.votes}</span>
+                                  <span className="text-sm text-muted-foreground">votes</span>
+                                </div>
+                                {pkg.bonusVotes > 0 && (
+                                  <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                                    + {pkg.bonusVotes} bonus votes
+                                  </p>
+                                )}
+                                <Separator />
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-xl font-bold text-primary">{formatCurrency(pkg.price)}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${pkg.isActive ? 'bg-green-500/15 text-green-700 dark:text-green-400' : 'bg-red-500/15 text-red-700 dark:text-red-400'}`}>
+                                  {pkg.isActive ? 'Active' : 'Inactive'}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    checked={pkg.isActive}
+                                    disabled={togglingPackageId === pkg.id}
+                                    onCheckedChange={() => togglePackageActive(pkg.id, pkg.isActive)}
+                                  />
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <Card>
+                      <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                        <Package className="w-12 h-12 mb-3 opacity-20" />
+                        <p className="font-medium">No packages created</p>
+                        <p className="text-sm mt-1">Create vote packages for users to purchase</p>
+                        <Button variant="outline" size="sm" className="mt-4" onClick={openAddPackageDialog}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create Package
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </motion.div>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
+
+      {/* ════════════════════════════════════════ */}
+      {/* DIALOGS                                   */}
+      {/* ════════════════════════════════════════ */}
+
+      {/* Add/Edit Contestant Dialog */}
+      <Dialog open={contestantDialogOpen} onOpenChange={setContestantDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>{editingContestant ? 'Edit Contestant' : 'Add Contestant'}</DialogTitle>
+            <DialogDescription>
+              {editingContestant ? 'Update contestant details' : 'Add a new contestant to the platform'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="c-name">Name *</Label>
+              <Input
+                id="c-name"
+                placeholder="Contestant name"
+                value={contestantForm.name}
+                onChange={(e) => setContestantForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="c-image">Image URL</Label>
+              <Input
+                id="c-image"
+                placeholder="https://example.com/photo.jpg"
+                value={contestantForm.imageUrl}
+                onChange={(e) => setContestantForm((f) => ({ ...f, imageUrl: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="c-bio">Bio</Label>
+              <Textarea
+                id="c-bio"
+                placeholder="Brief description of the contestant..."
+                rows={3}
+                value={contestantForm.bio}
+                onChange={(e) => setContestantForm((f) => ({ ...f, bio: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="c-category">Category</Label>
+              <Input
+                id="c-category"
+                placeholder="e.g. Miss Talent"
+                value={contestantForm.category}
+                onChange={(e) => setContestantForm((f) => ({ ...f, category: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="c-status">Status</Label>
+              <Select value={contestantForm.status} onValueChange={(v) => setContestantForm((f) => ({ ...f, status: v }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="eliminated">Eliminated</SelectItem>
+                  <SelectItem value="winner">Winner</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setContestantDialogOpen(false)}>Cancel</Button>
+            <Button onClick={submitContestant} disabled={contestantSubmitting}>
+              {contestantSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {editingContestant ? 'Save Changes' : 'Create Contestant'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Contestant Confirmation */}
+      <AlertDialog open={!!deleteContestantId} onOpenChange={() => setDeleteContestantId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              Delete Contestant
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The contestant and all their associated votes will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteContestantLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteContestantId && deleteContestant(deleteContestantId)}
+              disabled={deleteContestantLoading}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteContestantLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Create/Edit Stage Dialog */}
+      <Dialog open={stageDialogOpen} onOpenChange={setStageDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>{editingStage ? 'Edit Stage' : 'Create Stage'}</DialogTitle>
+            <DialogDescription>
+              {editingStage ? 'Update tournament stage details' : 'Add a new tournament stage'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="s-name">Stage Name *</Label>
+              <Input
+                id="s-name"
+                placeholder="e.g. Semi-Finals"
+                value={stageForm.name}
+                onChange={(e) => setStageForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="s-desc">Description</Label>
+              <Textarea
+                id="s-desc"
+                placeholder="Description of this stage..."
+                rows={2}
+                value={stageForm.description}
+                onChange={(e) => setStageForm((f) => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="s-start">Start Date</Label>
+                <Input
+                  id="s-start"
+                  type="date"
+                  value={stageForm.startDate}
+                  onChange={(e) => setStageForm((f) => ({ ...f, startDate: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="s-end">End Date</Label>
+                <Input
+                  id="s-end"
+                  type="date"
+                  value={stageForm.endDate}
+                  onChange={(e) => setStageForm((f) => ({ ...f, endDate: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="s-status">Status</Label>
+                <Select value={stageForm.status} onValueChange={(v) => setStageForm((f) => ({ ...f, status: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="upcoming">Upcoming</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="s-max">Max Contestants</Label>
+                <Input
+                  id="s-max"
+                  type="number"
+                  placeholder="Unlimited"
+                  value={stageForm.maxContestants}
+                  onChange={(e) => setStageForm((f) => ({ ...f, maxContestants: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="s-order">Order</Label>
+              <Input
+                id="s-order"
+                type="number"
+                min={1}
+                value={stageForm.order}
+                onChange={(e) => setStageForm((f) => ({ ...f, order: Number(e.target.value) || 1 }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStageDialogOpen(false)}>Cancel</Button>
+            <Button onClick={submitStage} disabled={stageSubmitting}>
+              {stageSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {editingStage ? 'Save Changes' : 'Create Stage'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Package Dialog */}
+      <Dialog open={packageDialogOpen} onOpenChange={setPackageDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Create Package</DialogTitle>
+            <DialogDescription>Add a new vote package for users to purchase</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="p-name">Package Name *</Label>
+              <Input
+                id="p-name"
+                placeholder="e.g. Premium Pack"
+                value={packageForm.name}
+                onChange={(e) => setPackageForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="p-votes">Votes *</Label>
+                <Input
+                  id="p-votes"
+                  type="number"
+                  placeholder="50"
+                  value={packageForm.votes}
+                  onChange={(e) => setPackageForm((f) => ({ ...f, votes: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="p-bonus">Bonus Votes</Label>
+                <Input
+                  id="p-bonus"
+                  type="number"
+                  placeholder="0"
+                  value={packageForm.bonusVotes}
+                  onChange={(e) => setPackageForm((f) => ({ ...f, bonusVotes: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="p-price">Price (USD) *</Label>
+              <Input
+                id="p-price"
+                type="number"
+                step="0.01"
+                placeholder="9.99"
+                value={packageForm.price}
+                onChange={(e) => setPackageForm((f) => ({ ...f, price: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="p-order">Display Order</Label>
+                <Input
+                  id="p-order"
+                  type="number"
+                  min={1}
+                  value={packageForm.order}
+                  onChange={(e) => setPackageForm((f) => ({ ...f, order: Number(e.target.value) || 1 }))}
+                />
+              </div>
+              <div className="flex items-center gap-3 pt-6">
+                <Switch
+                  checked={packageForm.isPopular}
+                  onCheckedChange={(checked) => setPackageForm((f) => ({ ...f, isPopular: checked }))}
+                />
+                <Label>Mark as Popular</Label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPackageDialogOpen(false)}>Cancel</Button>
+            <Button onClick={submitPackage} disabled={packageSubmitting}>
+              {packageSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Create Package
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
