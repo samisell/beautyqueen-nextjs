@@ -28,6 +28,7 @@ model User {
   receivedReferrals Referral[]   @relation("ReferredReferrals")
   notifications  Notification[]
   voteLinks      VoteLink[]
+  eliminatedContestants Contestant[]  @relation("Eliminator")
 
   @@index([email])
   @@index([referralCode])
@@ -35,21 +36,25 @@ model User {
 }
 
 model Contestant {
-  id          String    @id @default(cuid())
-  name        String
-  bio         String?
-  imageUrl    String
-  category    String
-  categoryId  String?
-  status      String    @default("active")
-  totalVotes  Int       @default(0)
-  stageId     String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  name             String
+  bio              String?
+  imageUrl         String
+  category         String
+  categoryId       String?
+  status           String    @default("active")
+  totalVotes       Int       @default(0)
+  stageId          String?
+  eliminatedAt     DateTime?
+  eliminationReason String?
+  eliminatedById   String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  votes  Vote[]
-  stage  TournamentStage?  @relation(fields: [stageId], references: [id])
-  categoryRel Category?    @relation(fields: [categoryId], references: [id])
+  votes            Vote[]
+  stage            TournamentStage?  @relation(fields: [stageId], references: [id])
+  categoryRel      Category?         @relation(fields: [categoryId], references: [id])
+  eliminatedBy     User?             @relation("Eliminator", fields: [eliminatedById], references: [id])
 
   @@index([category])
   @@index([status])
@@ -154,23 +159,49 @@ model Payment {
   @@index([createdAt])
 }
 
+model Tournament {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      String   @default("draft")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stages TournamentStage[]
+
+  @@index([status])
+}
+
 model TournamentStage {
   id             String   @id @default(cuid())
+  tournamentId   String
   name           String
   description    String?
   startDate      DateTime
   endDate        DateTime
   status         String   @default("upcoming")
   order          Int      @default(0)
+  minVotes       Int      @default(0)
   maxContestants Int?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  tournament  Tournament   @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   contestants Contestant[]
 
   @@index([status])
   @@index([order])
   @@index([startDate])
+  @@index([tournamentId])
+}
+
+model PlatformSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
 }
 
 model Referral {

@@ -16,10 +16,12 @@ export async function GET(request: NextRequest) {
       totalVotes,
       revenueResult,
       activeStage,
+      activeTournament,
       votesToday,
       newUsersToday,
       topContestants,
       recentActivity,
+      platformSettings,
     ] = await Promise.all([
       db.user.count(),
       db.contestant.count(),
@@ -27,7 +29,14 @@ export async function GET(request: NextRequest) {
       db.payment.aggregate({ where: { status: 'completed' }, _sum: { amount: true } }),
       db.tournamentStage.findFirst({
         where: { status: 'active' },
-        include: { _count: { select: { contestants: true } } },
+        include: {
+          _count: { select: { contestants: true } },
+          tournament: { select: { id: true, name: true } },
+        },
+      }),
+      db.tournament.findFirst({
+        where: { status: 'active' },
+        select: { id: true, name: true, status: true },
       }),
       db.vote.count({ where: { createdAt: { gte: todayStart } } }),
       db.user.count({ where: { createdAt: { gte: todayStart } } }),
@@ -44,7 +53,18 @@ export async function GET(request: NextRequest) {
           user: { select: { id: true, name: true, email: true } },
         },
       }),
+      db.platformSetting.findMany(),
     ]);
+
+    // Build settings map
+    const settingsMap: Record<string, string> = {
+      votePrice: '200',
+      currency: 'NGN',
+      platformName: 'Beauty Vote',
+    };
+    for (const s of platformSettings) {
+      settingsMap[s.key] = s.value;
+    }
 
     return success({
       totalUsers,
@@ -59,8 +79,13 @@ export async function GET(request: NextRequest) {
             name: activeStage.name,
             status: activeStage.status,
             contestantCount: activeStage._count.contestants,
+            tournament: activeStage.tournament
+              ? { name: activeStage.tournament.name }
+              : null,
           }
         : null,
+      activeTournament: activeTournament || null,
+      settings: settingsMap,
       topContestants: topContestants.map((c, i) => ({ rank: i + 1, ...c })),
       recentActivity: recentActivity.map((v) => ({
         id: v.id,

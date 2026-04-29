@@ -140,17 +140,46 @@ export interface PurchasedVote {
 }
 
 export type TournamentStatus = 'upcoming' | 'active' | 'completed';
+export type TournamentType = 'draft' | 'active' | 'completed' | 'archived';
 
 export interface TournamentStage {
   id: string;
+  tournamentId: string;
   name: string;
   description?: string;
   startDate: string;
   endDate: string;
   status: TournamentStatus;
   order: number;
+  minVotes: number;
   maxContestants?: number;
   contestantCount?: number;
+  contestants?: Contestant[];
+  topContestants?: Contestant[];
+}
+
+export interface Tournament {
+  id: string;
+  name: string;
+  description?: string;
+  status: TournamentType;
+  stageCount: number;
+  stages: TournamentStage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlatformSettings {
+  votePrice: number;
+  currency: string;
+  platformName: string;
+}
+
+export interface TournamentPublicData {
+  votePrice: number;
+  currency: string;
+  platformName: string;
+  tournament: Tournament | null;
 }
 
 export interface Referral {
@@ -210,4 +239,9 @@ export interface AdminStats {
   totalVotes: number;
   totalRevenue: number;
   activeStage: TournamentStage | null;
+  activeTournament: {
+    id: string;
+    name: string;
+    status: string;
+  } | null;
 }
