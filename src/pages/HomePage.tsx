@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
 import ContestantCard from '@/components/contestants/ContestantCard';
 import { useNavigationStore } from '@/stores/navigation-store';
 import type { Contestant, TournamentStage } from '@/types';
@@ -994,10 +995,10 @@ export default function HomePage() {
               winner announcement, or exclusive event.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-              <input
+              <Input
                 type="email"
                 placeholder="Enter your email address"
-                className="flex-1 px-5 py-3 rounded-2xl border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all shadow-sm"
+                className="flex-1 h-12 rounded-2xl px-5 shadow-sm"
               />
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-2xl shadow-lg shadow-primary/20 font-semibold shrink-0">
                 Subscribe
