@@ -46,6 +46,8 @@ import {
   PlusCircle,
   ClipboardCheck,
   Eye,
+  Landmark,
+  Medal,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -225,6 +227,14 @@ interface PlatformSettingsData {
   votePrice: string;
   currency: string;
   platformName: string;
+  offlineBankName: string;
+  offlineAccountName: string;
+  offlineAccountNumber: string;
+  offlineBankBranch: string;
+  prize1st: string;
+  prize2nd: string;
+  prize3rd: string;
+  prizeCurrency: string;
 }
 
 interface Pagination {
@@ -370,6 +380,14 @@ export default function AdminDashboard() {
     votePrice: '200',
     currency: 'NGN',
     platformName: 'Beauty Vote',
+    offlineBankName: 'BeautyVote Holdings',
+    offlineAccountName: 'BeautyVote Platform',
+    offlineAccountNumber: '1234567890',
+    offlineBankBranch: 'Main Branch',
+    prize1st: '5000000',
+    prize2nd: '3000000',
+    prize3rd: '1500000',
+    prizeCurrency: 'NGN',
   });
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -377,6 +395,14 @@ export default function AdminDashboard() {
     votePrice: '200',
     currency: 'NGN',
     platformName: 'Beauty Vote',
+    offlineBankName: 'BeautyVote Holdings',
+    offlineAccountName: 'BeautyVote Platform',
+    offlineAccountNumber: '1234567890',
+    offlineBankBranch: 'Main Branch',
+    prize1st: '5000000',
+    prize2nd: '3000000',
+    prize3rd: '1500000',
+    prizeCurrency: 'NGN',
   });
 
   // Contestants states
@@ -760,6 +786,14 @@ export default function AdminDashboard() {
           votePrice: Number(settingsForm.votePrice),
           currency: settingsForm.currency,
           platformName: settingsForm.platformName,
+          offlineBankName: settingsForm.offlineBankName,
+          offlineAccountName: settingsForm.offlineAccountName,
+          offlineAccountNumber: settingsForm.offlineAccountNumber,
+          offlineBankBranch: settingsForm.offlineBankBranch,
+          prize1st: Number(settingsForm.prize1st),
+          prize2nd: Number(settingsForm.prize2nd),
+          prize3rd: Number(settingsForm.prize3rd),
+          prizeCurrency: settingsForm.prizeCurrency,
         }),
       });
       const data = await res.json();
@@ -2715,7 +2749,7 @@ export default function AdminDashboard() {
                 {/* TAB: SETTINGS (new)                      */}
                 {/* ════════════════════════════════════════ */}
                 <TabsContent value="settings">
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                     <div>
                       <h2 className="text-lg font-semibold">Platform Settings</h2>
                       <p className="text-sm text-muted-foreground">Configure platform-wide preferences</p>
@@ -2723,56 +2757,189 @@ export default function AdminDashboard() {
 
                     {settingsLoading ? (
                       <div className="space-y-4">
-                        {Array.from({ length: 3 }).map((_, i) => (
-                          <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Skeleton key={i} className="h-40 w-full rounded-xl" />
                         ))}
                       </div>
                     ) : (
-                      <Card>
-                        <CardContent className="p-6 space-y-6">
-                          {/* Platform Name */}
-                          <div className="space-y-2">
-                            <Label htmlFor="setting-name" className="text-sm font-medium">
-                              Platform Name
-                            </Label>
-                            <Input
-                              id="setting-name"
-                              placeholder="Beauty Vote"
-                              value={settingsForm.platformName}
-                              onChange={(e) => setSettingsForm((f) => ({ ...f, platformName: e.target.value }))}
-                            />
-                            <p className="text-xs text-muted-foreground">The name displayed across the platform</p>
-                          </div>
-
-                          <Separator />
-
-                          {/* Vote Price & Currency */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <>
+                        {/* ── General Settings ── */}
+                        <Card>
+                          <CardHeader className="pb-4">
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <Settings2 className="w-4 h-4 text-primary" />
+                              General Settings
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-6">
+                            {/* Platform Name */}
                             <div className="space-y-2">
-                              <Label htmlFor="setting-price" className="text-sm font-medium">
-                                Vote Price (per vote)
+                              <Label htmlFor="setting-name" className="text-sm font-medium">
+                                Platform Name
                               </Label>
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
-                                  {currencySymbols[settingsForm.currency] || '$'}
-                                </span>
+                              <Input
+                                id="setting-name"
+                                placeholder="Beauty Vote"
+                                value={settingsForm.platformName}
+                                onChange={(e) => setSettingsForm((f) => ({ ...f, platformName: e.target.value }))}
+                              />
+                              <p className="text-xs text-muted-foreground">The name displayed across the platform (Navbar, Footer, pages)</p>
+                            </div>
+
+                            <Separator />
+
+                            {/* Vote Price & Currency */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                              <div className="space-y-2">
+                                <Label htmlFor="setting-price" className="text-sm font-medium">
+                                  Vote Price (per vote)
+                                </Label>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+                                    {currencySymbols[settingsForm.currency] || '$'}
+                                  </span>
+                                  <Input
+                                    id="setting-price"
+                                    type="number"
+                                    className="pl-8"
+                                    placeholder="200"
+                                    value={settingsForm.votePrice}
+                                    onChange={(e) => setSettingsForm((f) => ({ ...f, votePrice: e.target.value }))}
+                                  />
+                                </div>
+                                <p className="text-xs text-muted-foreground">Cost of a single vote</p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="setting-currency" className="text-sm font-medium">
+                                  Currency
+                                </Label>
+                                <Select value={settingsForm.currency} onValueChange={(v) => setSettingsForm((f) => ({ ...f, currency: v }))}>
+                                  <SelectTrigger id="setting-currency">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="NGN">NGN — Nigerian Naira (₦)</SelectItem>
+                                    <SelectItem value="USD">USD — US Dollar ($)</SelectItem>
+                                    <SelectItem value="GBP">GBP — British Pound (£)</SelectItem>
+                                    <SelectItem value="EUR">EUR — Euro (€)</SelectItem>
+                                    <SelectItem value="GHS">GHS — Ghanaian Cedi (₵)</SelectItem>
+                                    <SelectItem value="KES">KES — Kenyan Shilling (KSh)</SelectItem>
+                                    <SelectItem value="ZAR">ZAR — South African Rand (R)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">Primary currency for the platform</p>
+                              </div>
+                            </div>
+
+                            {/* Preview */}
+                            <div className="rounded-lg bg-muted/50 border p-4">
+                              <p className="text-xs text-muted-foreground mb-2">Preview</p>
+                              <p className="text-sm">
+                                One vote costs{' '}
+                                <span className="font-bold text-primary">
+                                  {formatCurrency(Number(settingsForm.votePrice) || 0, settingsForm.currency)}
+                                </span>{' '}
+                                on <span className="font-bold">{settingsForm.platformName || 'Beauty Vote'}</span>
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* ── Offline Payment Bank Details ── */}
+                        <Card>
+                          <CardHeader className="pb-4">
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <Landmark className="w-4 h-4 text-primary" />
+                              Offline Payment Bank Details
+                            </CardTitle>
+                            <p className="text-xs text-muted-foreground">
+                              These bank details are shown to users who choose the offline payment method for buying votes
+                            </p>
+                          </CardHeader>
+                          <CardContent className="space-y-5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                              <div className="space-y-2">
+                                <Label htmlFor="bank-name" className="text-sm font-medium">Bank Name</Label>
                                 <Input
-                                  id="setting-price"
-                                  type="number"
-                                  className="pl-8"
-                                  placeholder="200"
-                                  value={settingsForm.votePrice}
-                                  onChange={(e) => setSettingsForm((f) => ({ ...f, votePrice: e.target.value }))}
+                                  id="bank-name"
+                                  placeholder="e.g. Access Bank, GTBank"
+                                  value={settingsForm.offlineBankName}
+                                  onChange={(e) => setSettingsForm((f) => ({ ...f, offlineBankName: e.target.value }))}
                                 />
                               </div>
-                              <p className="text-xs text-muted-foreground">Cost of a single vote</p>
+                              <div className="space-y-2">
+                                <Label htmlFor="bank-branch" className="text-sm font-medium">Branch</Label>
+                                <Input
+                                  id="bank-branch"
+                                  placeholder="e.g. Victoria Island Branch"
+                                  value={settingsForm.offlineBankBranch}
+                                  onChange={(e) => setSettingsForm((f) => ({ ...f, offlineBankBranch: e.target.value }))}
+                                />
+                              </div>
                             </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                              <div className="space-y-2">
+                                <Label htmlFor="account-name" className="text-sm font-medium">Account Name</Label>
+                                <Input
+                                  id="account-name"
+                                  placeholder="Account name for deposits"
+                                  value={settingsForm.offlineAccountName}
+                                  onChange={(e) => setSettingsForm((f) => ({ ...f, offlineAccountName: e.target.value }))}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="account-number" className="text-sm font-medium">Account Number</Label>
+                                <Input
+                                  id="account-number"
+                                  placeholder="10-digit account number"
+                                  value={settingsForm.offlineAccountNumber}
+                                  onChange={(e) => setSettingsForm((f) => ({ ...f, offlineAccountNumber: e.target.value }))}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Bank Details Preview */}
+                            <div className="rounded-lg bg-muted/50 border p-4">
+                              <p className="text-xs text-muted-foreground mb-3">Preview (as seen by users)</p>
+                              <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Bank:</span>
+                                  <span className="font-medium">{settingsForm.offlineBankName || '—'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Account Name:</span>
+                                  <span className="font-medium">{settingsForm.offlineAccountName || '—'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Account Number:</span>
+                                  <span className="font-bold font-mono tracking-wider">{settingsForm.offlineAccountNumber || '—'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Branch:</span>
+                                  <span className="font-medium">{settingsForm.offlineBankBranch || '—'}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* ── Prize Settings ── */}
+                        <Card>
+                          <CardHeader className="pb-4">
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <Trophy className="w-4 h-4 text-primary" />
+                              Prize Configuration
+                            </CardTitle>
+                            <p className="text-xs text-muted-foreground">
+                              Set the cash prize amounts for each winning position. These will be displayed on the public Prize page.
+                            </p>
+                          </CardHeader>
+                          <CardContent className="space-y-5">
+                            {/* Prize Currency */}
                             <div className="space-y-2">
-                              <Label htmlFor="setting-currency" className="text-sm font-medium">
-                                Currency
-                              </Label>
-                              <Select value={settingsForm.currency} onValueChange={(v) => setSettingsForm((f) => ({ ...f, currency: v }))}>
-                                <SelectTrigger id="setting-currency">
+                              <Label htmlFor="prize-currency" className="text-sm font-medium">Prize Currency</Label>
+                              <Select value={settingsForm.prizeCurrency} onValueChange={(v) => setSettingsForm((f) => ({ ...f, prizeCurrency: v }))}>
+                                <SelectTrigger id="prize-currency" className="max-w-xs">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -2785,37 +2952,112 @@ export default function AdminDashboard() {
                                   <SelectItem value="ZAR">ZAR — South African Rand (R)</SelectItem>
                                 </SelectContent>
                               </Select>
-                              <p className="text-xs text-muted-foreground">Primary currency for the platform</p>
+                              <p className="text-xs text-muted-foreground">Currency used to display prize amounts publicly</p>
                             </div>
-                          </div>
 
-                          <Separator />
+                            <Separator />
 
-                          {/* Preview */}
-                          <div className="rounded-lg bg-muted/50 border p-4">
-                            <p className="text-xs text-muted-foreground mb-2">Preview</p>
-                            <p className="text-sm">
-                              One vote costs{' '}
-                              <span className="font-bold text-primary">
-                                {formatCurrency(Number(settingsForm.votePrice) || 0, settingsForm.currency)}
-                              </span>{' '}
-                              on <span className="font-bold">{settingsForm.platformName || 'Beauty Vote'}</span>
-                            </p>
-                          </div>
+                            {/* Prize Tiers */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                              {/* 1st Place */}
+                              <div className="space-y-2 rounded-xl border-2 border-yellow-400/30 bg-yellow-50/50 dark:bg-yellow-950/10 p-4">
+                                <div className="flex items-center gap-2">
+                                  <Crown className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                                  <Label className="text-sm font-bold text-yellow-700 dark:text-yellow-400">1st Place Prize</Label>
+                                </div>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+                                    {currencySymbols[settingsForm.prizeCurrency] || '₦'}
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    className="pl-8"
+                                    placeholder="5,000,000"
+                                    value={settingsForm.prize1st}
+                                    onChange={(e) => setSettingsForm((f) => ({ ...f, prize1st: e.target.value }))}
+                                  />
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  = {formatCurrency(Number(settingsForm.prize1st) || 0, settingsForm.prizeCurrency)}
+                                </p>
+                              </div>
 
-                          {/* Save Button */}
-                          <div className="flex justify-end">
-                            <Button onClick={saveSettings} disabled={settingsSaving}>
-                              {settingsSaving ? (
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              ) : (
-                                <Save className="w-4 h-4 mr-2" />
-                              )}
-                              Save Settings
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
+                              {/* 2nd Place */}
+                              <div className="space-y-2 rounded-xl border-2 border-gray-300/30 bg-gray-50/50 dark:bg-gray-900/30 p-4">
+                                <div className="flex items-center gap-2">
+                                  <Medal className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                  <Label className="text-sm font-bold text-gray-600 dark:text-gray-400">2nd Place Prize</Label>
+                                </div>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+                                    {currencySymbols[settingsForm.prizeCurrency] || '₦'}
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    className="pl-8"
+                                    placeholder="3,000,000"
+                                    value={settingsForm.prize2nd}
+                                    onChange={(e) => setSettingsForm((f) => ({ ...f, prize2nd: e.target.value }))}
+                                  />
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  = {formatCurrency(Number(settingsForm.prize2nd) || 0, settingsForm.prizeCurrency)}
+                                </p>
+                              </div>
+
+                              {/* 3rd Place */}
+                              <div className="space-y-2 rounded-xl border-2 border-orange-400/30 bg-orange-50/50 dark:bg-orange-950/10 p-4">
+                                <div className="flex items-center gap-2">
+                                  <Trophy className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                  <Label className="text-sm font-bold text-orange-700 dark:text-orange-400">3rd Place Prize</Label>
+                                </div>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+                                    {currencySymbols[settingsForm.prizeCurrency] || '₦'}
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    className="pl-8"
+                                    placeholder="1,500,000"
+                                    value={settingsForm.prize3rd}
+                                    onChange={(e) => setSettingsForm((f) => ({ ...f, prize3rd: e.target.value }))}
+                                  />
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  = {formatCurrency(Number(settingsForm.prize3rd) || 0, settingsForm.prizeCurrency)}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Total Prize Pool */}
+                            <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium">Total Prize Pool</span>
+                                <span className="text-lg font-bold text-primary">
+                                  {formatCurrency(
+                                    (Number(settingsForm.prize1st) || 0) +
+                                    (Number(settingsForm.prize2nd) || 0) +
+                                    (Number(settingsForm.prize3rd) || 0),
+                                    settingsForm.prizeCurrency
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Save Button */}
+                        <div className="flex justify-end">
+                          <Button onClick={saveSettings} disabled={settingsSaving}>
+                            {settingsSaving ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <Save className="w-4 h-4 mr-2" />
+                            )}
+                            Save All Settings
+                          </Button>
+                        </div>
+                      </>
                     )}
                   </motion.div>
                 </TabsContent>

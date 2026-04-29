@@ -11,6 +11,8 @@
  * For development/demo, these fallback to test keys or mock mode.
  */
 
+import { db } from '@/lib/db';
+
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
@@ -41,6 +43,46 @@ export const paymentConfig = {
     sortCode: process.env.OFFLINE_SORT_CODE || '',
   },
 };
+
+// ---------------------------------------------------------------------------
+// Offline bank details from DB (admin-manageable, overrides env vars)
+// ---------------------------------------------------------------------------
+
+const offlineBankCache = { data: null as Record<string, string> | null, fetchedAt: 0 };
+
+export async function getOfflineBankDetails(): Promise<typeof paymentConfig.offline> {
+  // Cache for 5 minutes
+  const now = Date.now();
+  if (offlineBankCache.data && now - offlineBankCache.fetchedAt < 5 * 60 * 1000) {
+    return {
+      bankName: offlineBankCache.data.offlineBankName || paymentConfig.offline.bankName,
+      accountName: offlineBankCache.data.offlineAccountName || paymentConfig.offline.accountName,
+      accountNumber: offlineBankCache.data.offlineAccountNumber || paymentConfig.offline.accountNumber,
+      bankBranch: offlineBankCache.data.offlineBankBranch || paymentConfig.offline.bankBranch,
+      sortCode: '',
+    };
+  }
+
+  try {
+    const settings = await db.platformSetting.findMany({
+      where: { key: { in: ['offlineBankName', 'offlineAccountName', 'offlineAccountNumber', 'offlineBankBranch'] } },
+    });
+    const map: Record<string, string> = {};
+    for (const s of settings) map[s.key] = s.value;
+    offlineBankCache.data = map;
+    offlineBankCache.fetchedAt = now;
+    return {
+      bankName: map.offlineBankName || paymentConfig.offline.bankName,
+      accountName: map.offlineAccountName || paymentConfig.offline.accountName,
+      accountNumber: map.offlineAccountNumber || paymentConfig.offline.accountNumber,
+      bankBranch: map.offlineBankBranch || paymentConfig.offline.bankBranch,
+      sortCode: '',
+    };
+  } catch {
+    // Fallback to env defaults if DB is unavailable
+    return paymentConfig.offline;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types

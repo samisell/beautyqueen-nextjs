@@ -402,3 +402,27 @@ Stage Summary:
 - All pages use Unsplash images, framer-motion animations, shadow design, responsive layout
 - Navigation system updated to support new routes
 - Footer updated with legal links and support section
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Add admin-manageable site name, offline bank details, and prize configuration
+
+Work Log:
+- Updated `/api/admin/settings` route with 7 new setting keys: offlineBankName, offlineAccountName, offlineAccountNumber, offlineBankBranch, prize1st, prize2nd, prize3rd, prizeCurrency — with proper validation
+- Created public `/api/settings` API endpoint (no auth required) exposing safe settings for PrizePage and payment flow
+- Updated AdminDashboard settings tab from 3 fields to 3 organized sections:
+  - General Settings: Platform Name, Vote Price, Currency (existing, enhanced)
+  - Offline Payment Bank Details: Bank Name, Branch, Account Name, Account Number with live preview
+  - Prize Configuration: Prize Currency, 1st/2nd/3rd Place amounts with color-coded tier cards, total prize pool calculator
+- Extended PlatformSettingsData interface with all 11 fields
+- Updated save function to persist all new fields
+- Added getOfflineBankDetails() to payment-gateways.ts with 5-minute cache — reads from DB (admin-managed) with env var fallback
+- Updated PrizePage to fetch settings from /api/settings and display dynamic prize amounts and total pool
+- Added Landmark and Medal icon imports to AdminDashboard
+
+Stage Summary:
+- Admin can now change site name, bank details, and prize amounts from Settings tab
+- PrizePage shows admin-configured amounts dynamically
+- Bank details for offline payments are now admin-manageable (5-min cache on server)
+- All lint checks pass, dev server compiles successfully

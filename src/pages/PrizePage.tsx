@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useNavigationStore } from '@/stores/navigation-store';
 
 const fadeInUp = {
@@ -219,8 +220,66 @@ function AnimatedCounter({ target, prefix = '', suffix = '' }: { target: number;
   );
 }
 
+function formatPrize(amount: number, currency?: string): string {
+  const symbols: Record<string, string> = { NGN: '₦', USD: '$', GBP: '£', EUR: '€', GHS: '₵', KES: 'KSh', ZAR: 'R' };
+  const cur = currency || 'NGN';
+  const symbol = symbols[cur] || '₦';
+  if (cur === 'NGN') return `${symbol}${amount.toLocaleString('en-NG')}`;
+  return amount.toLocaleString('en-US', { style: 'currency', currency: cur });
+}
+
 export default function PrizePage() {
   const { navigate } = useNavigationStore();
+  const [prizeSettings, setPrizeSettings] = useState({
+    prize1st: 5000000,
+    prize2nd: 3000000,
+    prize3rd: 1500000,
+    prizeCurrency: 'NGN',
+    platformName: 'Beauty Vote',
+  });
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const res = await fetch('/api/settings');
+        const data = await res.json();
+        if (data.success && data.data) {
+          setPrizeSettings({
+            prize1st: Number(data.data.prize1st) || 5000000,
+            prize2nd: Number(data.data.prize2nd) || 3000000,
+            prize3rd: Number(data.data.prize3rd) || 1500000,
+            prizeCurrency: data.data.prizeCurrency || 'NGN',
+            platformName: data.data.platformName || 'Beauty Vote',
+          });
+        }
+      } catch {
+        // Use defaults
+      } finally {
+        setSettingsLoaded(true);
+      }
+    }
+    fetchSettings();
+  }, []);
+
+  // Dynamic prize tiers based on admin settings
+  const dynamicPrizeTiers = prizeTiers.map((tier, i) => {
+    const amountKey = i === 0 ? 'prize1st' : i === 1 ? 'prize2nd' : 'prize3rd';
+    const amount = Number(prizeSettings[amountKey as keyof typeof prizeSettings]) || 0;
+    const formatted = formatPrize(amount, prizeSettings.prizeCurrency);
+    return {
+      ...tier,
+      prize: formatted,
+      items: tier.items.map((item) => {
+        if (i === 0) return item.replace('$5,000', formatted);
+        if (i === 1) return item.replace('$3,000', formatted);
+        return item.replace('$1,500', formatted);
+      }),
+    };
+  });
+
+  const totalPrize = (Number(prizeSettings.prize1st) || 0) + (Number(prizeSettings.prize2nd) || 0) + (Number(prizeSettings.prize3rd) || 0);
+  const totalPrizeFormatted = formatPrize(totalPrize, prizeSettings.prizeCurrency);
 
   return (
     <div className="min-h-screen">
@@ -331,9 +390,15 @@ export default function PrizePage() {
                   <div className="absolute bottom-3 right-8 text-2xl opacity-30">🎊</div>
 
                   <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">Total Prize Pool</p>
-                  <p className="text-5xl sm:text-6xl md:text-7xl font-extrabold text-amber-600 dark:text-amber-400 mb-3">
-                    <AnimatedCounter target={10000} prefix="$" suffix="+" />
-                  </p>
+                  <div className="mb-3">
+                    {settingsLoaded ? (
+                      <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold text-amber-600 dark:text-amber-400">
+                        {totalPrizeFormatted}+
+                      </span>
+                    ) : (
+                      <Skeleton className="h-16 w-64 mx-auto rounded-xl" />
+                    )}
+                  </div>
                   <p className="text-muted-foreground max-w-md mx-auto">
                     Including cash prizes, professional photoshoots, brand deals, and more
                   </p>
@@ -379,7 +444,7 @@ export default function PrizePage() {
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-            {prizeTiers.map((tier, i) => (
+            {dynamicPrizeTiers.map((tier, i) => (
               <motion.div
                 key={tier.rank}
                 initial={{ opacity: 0, y: 40 }}
