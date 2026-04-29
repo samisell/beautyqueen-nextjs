@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { generateAccessToken, generateRefreshToken } from '@/lib/auth';
 import { success, error, rateLimit, getClientIp, isValidEmail } from '@/lib/api-helpers';
+import { sendLoginNotification } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,6 +51,11 @@ export async function POST(request: NextRequest) {
     };
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
+
+    // --- Send login notification email (fire-and-forget) ---
+    setTimeout(() => {
+      sendLoginNotification(user.id, user.name, user.email, ip).catch(() => {});
+    }, 500);
 
     // --- Build response with cookies ---
     const sanitizedUser = {

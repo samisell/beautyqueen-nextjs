@@ -43,6 +43,7 @@ import {
   ChevronDown,
   RotateCcw,
   Swords,
+  PlusCircle,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -468,6 +469,24 @@ export default function AdminDashboard() {
   const [proofImageUrl, setProofImageUrl] = useState('');
   const [paymentSummary, setPaymentSummary] = useState({ pendingCount: 0, reviewCount: 0, completedCount: 0, offlinePendingCount: 0 });
 
+  // Bonus votes states
+  const [bonusContestants, setBonusContestants] = useState<Array<{id: string, name: string, totalVotes: number}>>([]);
+  const [bonusContestantId, setBonusContestantId] = useState('');
+  const [bonusVotes, setBonusVotes] = useState('');
+  const [bonusReason, setBonusReason] = useState('');
+  const [bonusSubmitting, setBonusSubmitting] = useState(false);
+  const [bonusHistory, setBonusHistory] = useState<Array<{
+    id: string;
+    contestantId: string;
+    votesAdded: number;
+    reason: string | null;
+    createdAt: string;
+    contestant: { id: string; name: string; imageUrl: string };
+    addedBy: { id: string; name: string };
+  }>>([]);
+  const [bonusHistoryLoading, setBonusHistoryLoading] = useState(false);
+  const [votingEnabled, setVotingEnabled] = useState(true);
+
   // Expanded contestants rows
   const [expandedContestants, setExpandedContestants] = useState<Set<string>>(new Set());
 
@@ -610,21 +629,53 @@ export default function AdminDashboard() {
     }
   }, [headers]);
 
+  const fetchBonusContestants = useCallback(async () => {
+    try {
+      const res = await fetch('/api/contestants?limit=50&status=active', { headers: headers() });
+      const data = await res.json();
+      if (data.success) setBonusContestants(data.data || []);
+    } catch {
+      // silent
+    }
+  }, [headers]);
+
+  const fetchBonusHistory = useCallback(async () => {
+    setBonusHistoryLoading(true);
+    try {
+      const res = await fetch('/api/admin/bonus-votes', { headers: headers() });
+      const data = await res.json();
+      if (data.success) setBonusHistory(data.data || []);
+    } catch {
+      // silent
+    } finally { setBonusHistoryLoading(false); }
+  }, [headers]);
+
+  const fetchVotingStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/toggle-voting', { headers: headers() });
+      const data = await res.json();
+      if (data.success) setVotingEnabled(data.data.votingEnabled);
+    } catch {
+      // silent
+    }
+  }, [headers]);
+
   // ──────────────────────────────────────────────
   // Data Fetching by Tab
   // ──────────────────────────────────────────────
 
   useEffect(() => {
     const controller = new AbortController();
-    if (activeTab === 'overview') fetchStats(controller.signal);
+    if (activeTab === 'overview') { fetchStats(controller.signal); fetchVotingStatus(); }
     else if (activeTab === 'settings') fetchSettings(controller.signal);
     else if (activeTab === 'contestants') fetchContestants(contestantsPage, contestantsSearch, controller.signal);
     else if (activeTab === 'users') fetchUsers(usersPage, usersSearch, controller.signal);
     else if (activeTab === 'tournament') fetchTournaments(controller.signal);
     else if (activeTab === 'packages') fetchPackages(controller.signal);
     else if (activeTab === 'payments') fetchPayments(paymentsPage, paymentsStatusFilter, paymentsMethodFilter, controller.signal);
+    else if (activeTab === 'bonus') { fetchBonusContestants(); fetchBonusHistory(); }
     return () => controller.abort();
-  }, [activeTab, fetchStats, fetchSettings, fetchContestants, fetchUsers, fetchTournaments, fetchPackages, fetchPayments]);
+  }, [activeTab, fetchStats, fetchSettings, fetchContestants, fetchUsers, fetchTournaments, fetchPackages, fetchPayments, fetchBonusContestants, fetchBonusHistory]);
 
   // Search debounced fetches
   useEffect(() => {
@@ -1144,6 +1195,44 @@ export default function AdminDashboard() {
   }
 
   // ──────────────────────────────────────────────
+  // Bonus Votes & Voting Toggle
+  // ──────────────────────────────────────────────
+
+  async function submitBonusVotes() {
+    if (!bonusContestantId) { toast.error('Select a contestant'); return; }
+    if (!bonusVotes || Number(bonusVotes) < 1) { toast.error('Enter valid number of votes'); return; }
+    setBonusSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/bonus-votes', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ contestantId: bonusContestantId, votes: Number(bonusVotes), reason: bonusReason || undefined }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message || `Added ${bonusVotes} bonus votes`);
+        setBonusContestantId('');
+        setBonusVotes('');
+        setBonusReason('');
+        fetchBonusHistory();
+        fetchStats();
+      } else { toast.error(data.message || 'Failed to add bonus votes'); }
+    } catch { toast.error('Network error'); }
+    finally { setBonusSubmitting(false); }
+  }
+
+  async function toggleVoting() {
+    try {
+      const res = await fetch('/api/admin/toggle-voting', { method: 'POST', headers: headers() });
+      const data = await res.json();
+      if (data.success) {
+        setVotingEnabled(data.data.votingEnabled);
+        toast.success(data.message);
+      } else { toast.error(data.message || 'Failed to toggle'); }
+    } catch { toast.error('Network error'); }
+  }
+
+  // ──────────────────────────────────────────────
   // Mock weekly chart data from real stats
   // ──────────────────────────────────────────────
 
@@ -1260,13 +1349,14 @@ export default function AdminDashboard() {
                   size="sm"
                   onClick={() => {
                     const controller = new AbortController();
-                    if (activeTab === 'overview') fetchStats(controller.signal);
+                    if (activeTab === 'overview') { fetchStats(controller.signal); fetchVotingStatus(); }
                     else if (activeTab === 'settings') fetchSettings(controller.signal);
                     else if (activeTab === 'contestants') fetchContestants(contestantsPage, contestantsSearch, controller.signal);
                     else if (activeTab === 'users') fetchUsers(usersPage, usersSearch, controller.signal);
                     else if (activeTab === 'tournament') fetchTournaments(controller.signal);
                     else if (activeTab === 'packages') fetchPackages(controller.signal);
                     else if (activeTab === 'payments') fetchPayments(paymentsPage, paymentsStatusFilter, paymentsMethodFilter, controller.signal);
+                    else if (activeTab === 'bonus') { fetchBonusContestants(); fetchBonusHistory(); }
                   }}
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
@@ -1306,6 +1396,10 @@ export default function AdminDashboard() {
                       </Badge>
                     )}
                   </TabsTrigger>
+                  <TabsTrigger value="bonus" className="gap-1.5">
+                    <PlusCircle className="w-4 h-4" />
+                    <span className="hidden sm:inline">Bonus Votes</span>
+                  </TabsTrigger>
                   <TabsTrigger value="settings" className="gap-1.5">
                     <Settings2 className="w-4 h-4" />
                     <span className="hidden sm:inline">Settings</span>
@@ -1344,6 +1438,27 @@ export default function AdminDashboard() {
                             );
                           })}
                     </div>
+
+                    {/* Voting Toggle */}
+                    <motion.div custom={6} variants={fadeInUp}>
+                      <Card className={votingEnabled ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}>
+                        <CardContent className="p-5 flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-xl ${votingEnabled ? 'bg-green-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
+                            <Activity className={`w-6 h-6 ${votingEnabled ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-semibold ${votingEnabled ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                              Voting is {votingEnabled ? 'ENABLED' : 'DISABLED'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">Toggle voting on/off across the entire platform</p>
+                          </div>
+                          <Switch
+                            checked={votingEnabled}
+                            onCheckedChange={toggleVoting}
+                          />
+                        </CardContent>
+                      </Card>
+                    </motion.div>
 
                     {/* Active Stage */}
                     {stats?.activeStage && (
@@ -2288,6 +2403,141 @@ export default function AdminDashboard() {
                     pagination={paymentsPagination}
                     onPageChange={(p) => setPaymentsPage(p)}
                   />
+                </TabsContent>
+
+                {/* ════════════════════════════════════════ */}
+                {/* TAB: BONUS VOTES                        */}
+                {/* ════════════════════════════════════════ */}
+                <TabsContent value="bonus">
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                    {/* Add Bonus Vote Form */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <PlusCircle className="w-4 h-4 text-primary" />
+                          Add Bonus Votes
+                        </CardTitle>
+                        <CardDescription>Manually add votes to a contestant</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="space-y-2 sm:col-span-2">
+                            <Label htmlFor="bonus-contestant">Contestant</Label>
+                            <Select value={bonusContestantId} onValueChange={setBonusContestantId}>
+                              <SelectTrigger id="bonus-contestant">
+                                <SelectValue placeholder="Select contestant..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {bonusContestants.map((c) => (
+                                  <SelectItem key={c.id} value={c.id}>
+                                    {c.name} ({c.totalVotes.toLocaleString()} votes)
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="bonus-votes">Number of Votes</Label>
+                            <Input
+                              id="bonus-votes"
+                              type="number"
+                              min="1"
+                              placeholder="e.g. 100"
+                              value={bonusVotes}
+                              onChange={(e) => setBonusVotes(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="bonus-reason">Reason (optional)</Label>
+                            <Input
+                              id="bonus-reason"
+                              placeholder="e.g. Referral bonus"
+                              value={bonusReason}
+                              onChange={(e) => setBonusReason(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <Button onClick={submitBonusVotes} disabled={bonusSubmitting}>
+                            {bonusSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            <PlusCircle className="w-4 h-4 mr-2" />
+                            Add Bonus Votes
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Bonus Vote History */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-primary" />
+                          Bonus Vote History
+                        </CardTitle>
+                        <CardDescription>All bonus votes that have been added</CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        {bonusHistoryLoading ? (
+                          <div className="p-6 space-y-3">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                            ))}
+                          </div>
+                        ) : bonusHistory.length > 0 ? (
+                          <ScrollArea>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Date</TableHead>
+                                  <TableHead>Contestant Name</TableHead>
+                                  <TableHead className="text-right">Votes Added</TableHead>
+                                  <TableHead>Reason</TableHead>
+                                  <TableHead>Added By</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {bonusHistory.map((b) => (
+                                  <TableRow key={b.id}>
+                                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                                      {formatDateTime(b.createdAt)}
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        <img
+                                          src={b.contestant.imageUrl}
+                                          alt={b.contestant.name}
+                                          className="w-6 h-6 rounded-full object-cover shrink-0"
+                                          onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/48x48/f97316/fff?text=' + b.contestant.name.charAt(0); }}
+                                        />
+                                        <span className="text-sm font-medium">{b.contestant.name}</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20">
+                                        +{b.votesAdded.toLocaleString()}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-sm text-muted-foreground">
+                                      {b.reason || '—'}
+                                    </TableCell>
+                                    <TableCell className="text-sm font-medium">
+                                      {b.addedBy.name}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </ScrollArea>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                            <PlusCircle className="w-12 h-12 mb-3 opacity-20" />
+                            <p className="font-medium">No bonus votes added yet</p>
+                            <p className="text-sm mt-1">Use the form above to add bonus votes to contestants</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
                 </TabsContent>
 
                 {/* ════════════════════════════════════════ */}

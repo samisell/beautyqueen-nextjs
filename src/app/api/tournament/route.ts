@@ -6,7 +6,12 @@ export async function GET(_request: NextRequest) {
   try {
     // Get platform settings (public)
     const settings = await db.platformSetting.findMany();
-    const settingsMap: Record<string, string> = {};
+    const settingsMap: Record<string, string> = {
+      votePrice: '200',
+      currency: 'NGN',
+      platformName: 'Beauty Vote',
+      votingEnabled: 'true',
+    };
     for (const s of settings) {
       settingsMap[s.key] = s.value;
     }
@@ -34,6 +39,7 @@ export async function GET(_request: NextRequest) {
         votePrice: Number(settingsMap['votePrice'] || '200'),
         currency: settingsMap['currency'] || 'NGN',
         platformName: settingsMap['platformName'] || 'Beauty Vote',
+        votingEnabled: settingsMap['votingEnabled'] !== 'false',
         tournament: null,
       });
     }
@@ -75,6 +81,7 @@ export async function GET(_request: NextRequest) {
       votePrice: Number(settingsMap['votePrice'] || '200'),
       currency: settingsMap['currency'] || 'NGN',
       platformName: settingsMap['platformName'] || 'Beauty Vote',
+      votingEnabled: settingsMap['votingEnabled'] !== 'false',
       tournament: {
         id: tournament.id,
         name: tournament.name,

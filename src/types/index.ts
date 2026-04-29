@@ -173,12 +173,14 @@ export interface PlatformSettings {
   votePrice: number;
   currency: string;
   platformName: string;
+  votingEnabled: boolean;
 }
 
 export interface TournamentPublicData {
   votePrice: number;
   currency: string;
   platformName: string;
+  votingEnabled: boolean;
   tournament: Tournament | null;
 }
 

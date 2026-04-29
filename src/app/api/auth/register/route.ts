@@ -11,6 +11,13 @@ import {
   isValidEmail,
   isValidPassword,
 } from '@/lib/api-helpers';
+import {
+  sendRegistrationEmail,
+  sendWelcomeEmail,
+  sendPlatformInstructions,
+  sendVerificationOTP,
+  generateOTP,
+} from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -124,6 +131,26 @@ export async function POST(request: NextRequest) {
     };
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
+
+    // --- Send emails (fire-and-forget, don't block response) ---
+    const emailDelay = setTimeout(() => {
+      sendRegistrationEmail(user.id, user.name, user.email, newReferralCode).catch(() => {});
+      sendWelcomeEmail(user.id, user.name, user.email).catch(() => {});
+      // Send platform instructions after a short delay
+      setTimeout(() => {
+        sendPlatformInstructions(user.id, user.name, user.email).catch(() => {});
+      }, 3000);
+      // Send verification OTP
+      const otp = generateOTP(6);
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      db.emailVerification.upsert({
+        where: { userId: user.id },
+        update: { otp, expiresAt, verifiedAt: null },
+        create: { userId: user.id, otp, expiresAt },
+      }).then(() => {
+        sendVerificationOTP(user.id, user.name, user.email, otp).catch(() => {});
+      }).catch(() => {});
+    }, 500);
 
     // --- Build response with cookies ---
     const sanitizedUser = {

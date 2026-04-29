@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Heart,
   Star,
@@ -20,6 +20,11 @@ import {
   AlertTriangle,
   CheckCircle2,
   TrendingUp,
+  UserX,
+  LogIn,
+  CalendarDays,
+  X,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +32,14 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import DashboardSidebar from '@/components/layout/DashboardSidebar';
 import { useNavigationStore } from '@/stores/navigation-store';
 import { useAuthStore } from '@/stores/auth-store';
@@ -56,6 +69,21 @@ interface NotificationData {
   type: 'info' | 'warning' | 'success' | 'error';
   isRead: boolean;
   createdAt: string;
+}
+
+interface AvailableTournament {
+  id: string;
+  name: string;
+  description?: string;
+  nextStage: {
+    id: string;
+    name: string;
+    startDate: string;
+    minVotes: number;
+    maxContestants?: number;
+    _count: { contestants: number };
+  } | null;
+  totalStages: number;
 }
 
 const fadeInUp = {
@@ -133,6 +161,12 @@ export default function DashboardOverview() {
   const [loading, setLoading] = useState(true);
   const [markingAllRead, setMarkingAllRead] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isEliminated, setIsEliminated] = useState(false);
+  const [eliminationInfo, setEliminationInfo] = useState<{ reason?: string; date?: string }>({});
+  const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
+  const [availableTournaments, setAvailableTournaments] = useState<AvailableTournament[]>([]);
+  const [enrollLoading, setEnrollLoading] = useState(false);
+  const [votingEnabled, setVotingEnabled] = useState(true);
 
   const headers = {
     'Content-Type': 'application/json',
@@ -165,11 +199,11 @@ export default function DashboardOverview() {
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      await Promise.all([fetchStats(), fetchNotifications()]);
+      await Promise.all([fetchStats(), fetchNotifications(), checkEliminationStatus(), checkVotingStatus()]);
       setLoading(false);
     }
     fetchData();
-  }, [fetchStats, fetchNotifications]);
+  }, [fetchStats, fetchNotifications, checkEliminationStatus, checkVotingStatus]);
 
   const handleMarkAllRead = async () => {
     setMarkingAllRead(true);
@@ -202,6 +236,59 @@ export default function DashboardOverview() {
       toast.success('Referral link copied to clipboard!');
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  // Check if current user (as contestant) is eliminated
+  const checkEliminationStatus = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch('/api/contestants?limit=100', { headers });
+      const data = await res.json();
+      if (data.success && data.data) {
+        const myContestant = data.data.find((c: { status: string; eliminationReason?: string | null; eliminatedAt?: string | null }) => c.status === 'eliminated');
+        if (myContestant) {
+          setIsEliminated(true);
+          setEliminationInfo({
+            reason: myContestant.eliminationReason || undefined,
+            date: myContestant.eliminatedAt || undefined,
+          });
+        } else {
+          setIsEliminated(false);
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }, [user, token]);
+
+  const checkVotingStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tournament', { headers });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setVotingEnabled(data.data.votingEnabled ?? true);
+      }
+    } catch {
+      // Ignore
+    }
+  }, [token]);
+
+  const fetchAvailableTournaments = useCallback(async () => {
+    setEnrollLoading(true);
+    try {
+      const res = await fetch('/api/tournaments/available', { headers });
+      const data = await res.json();
+      if (data.success) setAvailableTournaments(data.data || []);
+    } catch {
+      // Ignore
+    } finally {
+      setEnrollLoading(false);
+    }
+  }, [token]);
+
+  const openEnrollDialog = () => {
+    setEnrollDialogOpen(true);
+    fetchAvailableTournaments();
   };
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -290,6 +377,141 @@ export default function DashboardOverview() {
               </h1>
               <p className="text-muted-foreground mt-1">{today}</p>
             </motion.div>
+
+            {/* Eliminated Contestant Banner */}
+            {isEliminated && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 }}
+              >
+                <Card className="border-2 border-red-500/30 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20">
+                  <CardContent className="p-6">
+                    <div className="flex flex-col sm:flex-row items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                        <UserX className="w-6 h-6 text-red-500" />
+                      </div>
+                      <div className="flex-1">
+                        <h2 className="text-lg font-bold text-red-600 dark:text-red-400 mb-1">
+                          Contestant Status: Eliminated
+                        </h2>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {eliminationInfo.reason
+                            ? `Reason: ${eliminationInfo.reason}`
+                            : 'You have been eliminated from the current tournament stage.'}
+                          {eliminationInfo.date && (
+                            <span className="block text-xs text-muted-foreground mt-1">
+                              Eliminated on {new Date(eliminationInfo.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          )}
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Button
+                            onClick={openEnrollDialog}
+                            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
+                          >
+                            <LogIn className="w-4 h-4 mr-2" />
+                            Enroll in New Tournament
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="rounded-xl"
+                            onClick={() => navigate('tournament')}
+                          >
+                            <CalendarDays className="w-4 h-4 mr-2" />
+                            View Tournaments
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Voting Disabled Banner (for non-eliminated users) */}
+            {!isEliminated && !votingEnabled && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+              >
+                <Card className="border-2 border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/10">
+                  <CardContent className="p-5 flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                      <AlertCircle className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-amber-700 dark:text-amber-400">Voting is Temporarily Paused</p>
+                      <p className="text-xs text-muted-foreground">Please check back later for updates</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Enrollment Dialog */}
+            <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-primary" />
+                    Available Tournaments
+                  </DialogTitle>
+                  <DialogDescription>
+                    Choose a tournament to enroll in. Only tournaments with upcoming stages are shown.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="max-h-80 overflow-y-auto py-2">
+                  {enrollLoading ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-20 rounded-xl" />
+                      ))}
+                    </div>
+                  ) : availableTournaments.length > 0 ? (
+                    <div className="space-y-3">
+                      {availableTournaments.map((t) => (
+                        <Card key={t.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => { setEnrollDialogOpen(false); navigate('tournament'); }}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                <Trophy className="w-5 h-5 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm">{t.name}</p>
+                                {t.description && (
+                                  <p className="text-xs text-muted-foreground truncate">{t.description}</p>
+                                )}
+                                {t.nextStage && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    <Badge variant="secondary" className="text-[10px] mr-1">Next Stage</Badge>
+                                    {t.nextStage.name} · Starts{' '}
+                                    {new Date(t.nextStage.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                  </p>
+                                )}
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <CalendarDays className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">No available tournaments at this time</p>
+                      <p className="text-xs text-muted-foreground mt-1">Check back later for new opportunities!</p>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setEnrollDialogOpen(false)}>
+                    <X className="w-4 h-4 mr-1" />
+                    Close
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

@@ -18,6 +18,7 @@ import {
   ArrowDown,
   Zap,
   Target,
+  Ban,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -175,6 +176,7 @@ export default function TournamentPage() {
   const votePrice = data?.votePrice || 200;
   const currency = data?.currency || 'NGN';
   const platformName = data?.platformName || 'Beauty Vote';
+  const votingEnabled = data?.votingEnabled ?? true;
 
   const activeStage = tournament?.stages.find((s) => s.status === 'active');
   const activeContestants = activeStage?.contestants || [];
@@ -531,8 +533,31 @@ export default function TournamentPage() {
           </section>
         )}
 
+        {/* Voting Disabled Banner */}
+        {!votingEnabled && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-12"
+          >
+            <Card className="border-2 border-red-500/30 bg-red-500/5">
+              <CardContent className="p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
+                  <Ban className="w-6 h-6 text-red-500" />
+                </div>
+                <div className="flex-1 text-center sm:text-left">
+                  <p className="font-bold text-lg text-red-600 dark:text-red-400">Voting is Currently Paused</p>
+                  <p className="text-sm text-muted-foreground">
+                    The admin has temporarily disabled voting. Please check back later!
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Vote CTA when tournament is active */}
-        {tournament?.status === 'active' && (
+        {tournament?.status === 'active' && votingEnabled && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}

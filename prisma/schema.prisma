@@ -29,6 +29,8 @@ model User {
   notifications  Notification[]
   voteLinks      VoteLink[]
   eliminatedContestants Contestant[]  @relation("Eliminator")
+  bonusVotes     BonusVote[]  @relation("BonusVoteAdmin")
+  emailVerification EmailVerification?
 
   @@index([email])
   @@index([referralCode])
@@ -55,6 +57,7 @@ model Contestant {
   stage            TournamentStage?  @relation(fields: [stageId], references: [id])
   categoryRel      Category?         @relation(fields: [categoryId], references: [id])
   eliminatedBy     User?             @relation("Eliminator", fields: [eliminatedById], references: [id])
+  bonusVotes       BonusVote[]
 
   @@index([category])
   @@index([status])
@@ -202,6 +205,55 @@ model PlatformSetting {
   updatedAt DateTime @updatedAt
 
   @@index([key])
+}
+
+model BonusVote {
+  id           String   @id @default(cuid())
+  contestantId String
+  votesAdded    Int
+  reason       String?
+  addedById     String
+  createdAt    DateTime @default(now())
+
+  contestant Contestant @relation(fields: [contestantId], references: [id])
+  addedBy     User       @relation("BonusVoteAdmin", fields: [addedById], references: [id])
+
+  @@index([contestantId])
+  @@index([addedById])
+  @@index([createdAt])
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  otp       String
+  purpose   String   @default("verification")
+ expiresAt DateTime
+  verifiedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([otp])
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  to        String
+  subject   String
+  template  String
+  status    String   @default("sent")
+ error     String?
+  data      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([template])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Referral {

@@ -33,6 +33,13 @@ export async function POST(request: NextRequest) {
       return error('Invalid vote type. Must be one of: free, paid, referral', 400);
     }
 
+    // --- Check if voting is enabled globally ---
+    const votingSetting = await db.platformSetting.findUnique({ where: { key: 'votingEnabled' } });
+    const votingEnabled = votingSetting ? votingSetting.value === 'true' : true;
+    if (!votingEnabled) {
+      return error('Voting is currently disabled. Please check back later.', 403);
+    }
+
     // --- Verify contestant exists and is active ---
     const contestant = await db.contestant.findUnique({
       where: { id: contestantId },
@@ -43,6 +50,18 @@ export async function POST(request: NextRequest) {
     }
     if (contestant.status !== 'active') {
       return error('Voting is not available for this contestant', 400);
+    }
+
+    // --- Verify the contestant is in an active stage ---
+    if (contestant.status === 'active') {
+      const activeStageCheck = await db.tournamentStage.findFirst({
+        where: {
+          contestants: { some: { id: contestantId } },
+          status: 'active',
+        },
+        select: { id: true },
+      });
+      // If contestant has no active stage, still allow voting (they may be in an un-staged tournament)
     }
 
     const todayStart = new Date();

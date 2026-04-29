@@ -61,6 +61,7 @@ export async function GET(request: NextRequest) {
       votePrice: '200',
       currency: 'NGN',
       platformName: 'Beauty Vote',
+      votingEnabled: 'true',
     };
     for (const s of platformSettings) {
       settingsMap[s.key] = s.value;
