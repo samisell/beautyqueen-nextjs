@@ -42,6 +42,7 @@ model User {
 model Contestant {
   id               String    @id @default(cuid())
   name             String
+  username         String?   @unique
   bio              String?
   imageUrl         String
   category         String
@@ -53,6 +54,17 @@ model Contestant {
   eliminatedAt     DateTime?
   eliminationReason String?
   eliminatedById   String?
+  // Profile fields
+  phone            String?
+  address          String?
+  country          String?
+  state            String?
+  bankName         String?
+  bankAccountName  String?
+  bankAccountNumber String?
+  bankSortCode     String?
+  socialLinks      String?   // JSON: { instagram, twitter, facebook, tiktok, youtube, website }
+  gallery          String?   // JSON array: ["url1", "url2", ...]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -70,6 +82,7 @@ model Contestant {
   @@index([totalVotes(sort: Desc)])
   @@index([stageId])
   @@index([categoryId])
+  @@index([username])
 }
 
 model Category {

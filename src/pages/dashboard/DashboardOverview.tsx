@@ -647,7 +647,36 @@ export default function DashboardOverview() {
   // ────────────────────────────────────────────
   // Quick actions
   // ────────────────────────────────────────────
-  const quickActions = [
+  const quickActions = isContestant ? [
+    {
+      label: 'Edit Profile',
+      icon: Star,
+      desc: 'Update your bio, photos, bank details & more',
+      action: () => navigate('dashboard-profile'),
+      iconBg: 'bg-gradient-to-br from-primary to-orange-500',
+    },
+    {
+      label: 'Vote for Yourself',
+      icon: Heart,
+      desc: 'Purchase votes to boost your ranking',
+      action: () => navigate('dashboard-profile'),
+      iconBg: 'bg-gradient-to-br from-rose-400 to-rose-600',
+    },
+    {
+      label: 'Share Profile',
+      icon: Share2,
+      desc: 'Share your link & attract more votes',
+      action: handleCopyContestantLink,
+      iconBg: 'bg-gradient-to-br from-emerald-400 to-emerald-600',
+    },
+    {
+      label: 'View Leaderboard',
+      icon: Trophy,
+      desc: 'See how you rank against others',
+      action: () => navigate('leaderboard'),
+      iconBg: 'bg-gradient-to-br from-amber-400 to-amber-600',
+    },
+  ] : [
     {
       label: 'Vote Now',
       icon: Trophy,

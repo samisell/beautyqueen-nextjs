@@ -6,7 +6,8 @@ import { success, error, getUserFromRequest } from '@/lib/api-helpers';
  * GET /api/user/my-contestant
  *
  * Returns the authenticated user's contestant profile if they have one.
- * Includes tournament info, stage, category, vote count, rank, and votingEnabled.
+ * Includes tournament info, stage, category, vote count, rank, votingEnabled,
+ * and full profile fields (phone, address, bank details, social links, gallery).
  */
 export async function GET(_request: NextRequest) {
   try {
@@ -69,10 +70,21 @@ export async function GET(_request: NextRequest) {
       db.platformSetting.findUnique({ where: { key: 'currency' } }),
     ]);
 
+    // Parse JSON fields
+    let gallery: string[] = [];
+    let socialLinks: Record<string, string> = {};
+    try {
+      gallery = contestant.gallery ? JSON.parse(contestant.gallery) : [];
+    } catch { /* ignore */ }
+    try {
+      socialLinks = contestant.socialLinks ? JSON.parse(contestant.socialLinks) : {};
+    } catch { /* ignore */ }
+
     return success({
       id: contestant.id,
       contestantCode: contestant.id.substring(0, 8).toUpperCase(),
       name: contestant.name,
+      username: contestant.username,
       bio: contestant.bio,
       imageUrl: contestant.imageUrl,
       category: contestant.category,
@@ -86,6 +98,20 @@ export async function GET(_request: NextRequest) {
       updatedAt: contestant.updatedAt,
       eliminatedAt: contestant.eliminatedAt,
       eliminationReason: contestant.eliminationReason,
+      // Contact & address
+      phone: contestant.phone,
+      address: contestant.address,
+      country: contestant.country,
+      state: contestant.state,
+      // Bank details
+      bankName: contestant.bankName,
+      bankAccountName: contestant.bankAccountName,
+      bankAccountNumber: contestant.bankAccountNumber,
+      bankSortCode: contestant.bankSortCode,
+      // Social & gallery
+      socialLinks,
+      gallery,
+      // Stage info
       stage: contestant.stage
         ? {
             id: contestant.stage.id,
@@ -117,7 +143,7 @@ export async function GET(_request: NextRequest) {
         : null,
       platform: {
         name: platformNameSetting?.value || 'Beauty Vote',
-        votePrice: votePriceSetting?.value || '100',
+        votePrice: votePriceSetting?.value || '200',
         currency: currencySetting?.value || 'NGN',
       },
     });
