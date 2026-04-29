@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          String    @default("user")
+  avatar        String?
+  isVerified    Boolean   @default(false)
+  referredBy    String?
+  referralCode  String    @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  votes          Vote[]
+  purchasedVotes PurchasedVote[]
+  payments       Payment[]
+  sentReferrals  Referral[]      @relation("ReferrerReferrals")
+  receivedReferrals Referral[]   @relation("ReferredReferrals")
+  notifications  Notification[]
+  voteLinks      VoteLink[]
+
+  @@index([email])
+  @@index([referralCode])
+  @@index([referredBy])
+}
+
+model Contestant {
+  id          String    @id @default(cuid())
+  name        String
+  bio         String?
+  imageUrl    String
+  category    String
+  categoryId  String?
+  status      String    @default("active")
+  totalVotes  Int       @default(0)
+  stageId     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  votes  Vote[]
+  stage  TournamentStage?  @relation(fields: [stageId], references: [id])
+  categoryRel Category?    @relation(fields: [categoryId], references: [id])
+
+  @@index([category])
+  @@index([status])
+  @@index([totalVotes(sort: Desc)])
+  @@index([stageId])
+  @@index([categoryId])
+}
+
+model Category {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  icon        String?
+  order       Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  contestants Contestant[]
+
+  @@index([order])
+}
+
+model Vote {
+  id           String   @id @default(cuid())
+  contestantId String
+  userId       String?
+  voteType     String   @default("free")
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  contestant Contestant @relation(fields: [contestantId], references: [id], onDelete: Cascade)
+  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([contestantId])
+  @@index([userId])
+  @@index([ipAddress, createdAt])
+  @@index([voteType])
+}
+
+model VotePackage {
+  id          String   @id @default(cuid())
+  name        String
+  votes       Int
+  price       Float
+  bonusVotes  Int      @default(0)
+  isPopular   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchases PurchasedVote[]
+  payments  Payment[]
+
+  @@index([isActive])
+  @@index([order])
+}
+
+model PurchasedVote {
+  id           String   @id @default(cuid())
+  userId       String
+  packageId    String
+  votesAmount  Int
+  votesUsed    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package VotePackage @relation(fields: [packageId], references: [id])
+
+  @@index([userId])
+  @@index([packageId])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  userId        String
+  packageId     String
+  amount        Float
+  status        String   @default("pending")
+  paymentMethod String   @default("mock")
+  transactionId String?  @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package VotePackage @relation(fields: [packageId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model TournamentStage {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  startDate      DateTime
+  endDate        DateTime
+  status         String   @default("upcoming")
+  order          Int      @default(0)
+  maxContestants Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  contestants Contestant[]
+
+  @@index([status])
+  @@index([order])
+  @@index([startDate])
+}
+
+model Referral {
+  id           String   @id @default(cuid())
+  referrerId   String
+  referredId   String
+  bonusVotes   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  referrer User @relation("ReferrerReferrals", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred User @relation("ReferredReferrals", fields: [referredId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
+  @@index([referredId])
+  @@unique([referrerId, referredId])
+}
+
+model VoteLink {
+  id           String   @id @default(cuid())
+  userId       String
+  contestantId String
+  code         String   @unique
+  clickCount   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([code])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
