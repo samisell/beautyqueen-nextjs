@@ -23,6 +23,7 @@ model User {
   votes          Vote[]
   purchasedVotes PurchasedVote[]
   payments       Payment[]
+  reviewedPayments Payment[]     @relation("PaymentReviewer")
   sentReferrals  Referral[]      @relation("ReferrerReferrals")
   receivedReferrals Referral[]   @relation("ReferredReferrals")
   notifications  Notification[]
@@ -123,21 +124,33 @@ model PurchasedVote {
 }
 
 model Payment {
-  id            String   @id @default(cuid())
-  userId        String
-  packageId     String
-  amount        Float
-  status        String   @default("pending")
-  paymentMethod String   @default("mock")
-  transactionId String?  @unique
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String    @id @default(cuid())
+  userId          String
+  packageId       String
+  amount          Float
+  status          String    @default("pending")
+  paymentMethod   String    @default("mock")
+  transactionId   String?   @unique
+  reference       String?
+  gatewayRef      String?
+  proofImageUrl   String?
+  bankName        String?
+  accountName     String?
+  accountNumber   String?
+  depositorName   String?
+  adminNote       String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   package VotePackage @relation(fields: [packageId], references: [id])
+  reviewer User?      @relation("PaymentReviewer", fields: [reviewedBy], references: [id])
 
   @@index([userId])
   @@index([status])
+  @@index([paymentMethod])
   @@index([createdAt])
 }
 

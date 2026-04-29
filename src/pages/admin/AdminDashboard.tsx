@@ -29,6 +29,12 @@ import {
   UserCheck,
   Trophy,
   X,
+  CreditCard,
+  Building2,
+  Check,
+  Clock,
+  Image as ImageIcon,
+  Ban,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -161,6 +167,27 @@ interface PackageItem {
   isPopular: boolean;
   isActive: boolean;
   order: number;
+}
+
+interface PaymentItem {
+  id: string;
+  amount: number;
+  status: string;
+  paymentMethod: string;
+  transactionId?: string;
+  reference?: string;
+  proofImageUrl?: string;
+  bankName?: string;
+  accountName?: string;
+  accountNumber?: string;
+  depositorName?: string;
+  adminNote?: string;
+  reviewedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  user: { id: string; name: string; email: string };
+  package: { id: string; name: string; votes: number; bonusVotes: number };
+  reviewer: { id: string; name: string } | null;
 }
 
 interface Pagination {
@@ -334,6 +361,22 @@ export default function AdminDashboard() {
   const [packageSubmitting, setPackageSubmitting] = useState(false);
   const [togglingPackageId, setTogglingPackageId] = useState<string | null>(null);
 
+  // Payments states
+  const [payments, setPayments] = useState<PaymentItem[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
+  const [paymentsStatusFilter, setPaymentsStatusFilter] = useState('all');
+  const [paymentsMethodFilter, setPaymentsMethodFilter] = useState('all');
+  const [paymentsPagination, setPaymentsPagination] = useState<Pagination | null>(null);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+  const [proofDialogOpen, setProofDialogOpen] = useState(false);
+  const [proofImageUrl, setProofImageUrl] = useState('');
+  const [paymentSummary, setPaymentSummary] = useState({ pendingCount: 0, reviewCount: 0, completedCount: 0, offlinePendingCount: 0 });
+
   const headers = useCallback(() => ({
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
@@ -421,6 +464,32 @@ export default function AdminDashboard() {
     }
   }, [headers]);
 
+  const fetchPayments = useCallback(async (page = 1, statusFilter = 'all', methodFilter = 'all', signal?: AbortSignal) => {
+    setPaymentsLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: '15', status: statusFilter, method: methodFilter });
+      const res = await fetch(`/api/admin/payments?${params}`, { headers: headers(), signal });
+      const data = await res.json();
+      if (data.success) {
+        setPayments(data.data || []);
+        setPaymentsPagination(data.pagination || null);
+        if (data.meta) {
+          setPaymentSummary({
+            pendingCount: data.meta.pendingCount || 0,
+            reviewCount: data.meta.reviewCount || 0,
+            completedCount: data.meta.completedCount || 0,
+            offlinePendingCount: data.meta.offlinePendingCount || 0,
+          });
+        }
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      toast.error('Failed to load payments');
+    } finally {
+      setPaymentsLoading(false);
+    }
+  }, [headers]);
+
   // ──────────────────────────────────────────────
   // Data Fetching by Tab
   // ──────────────────────────────────────────────
@@ -432,8 +501,9 @@ export default function AdminDashboard() {
     else if (activeTab === 'users') fetchUsers(usersPage, usersSearch, controller.signal);
     else if (activeTab === 'tournament') fetchStages(controller.signal);
     else if (activeTab === 'packages') fetchPackages(controller.signal);
+    else if (activeTab === 'payments') fetchPayments(paymentsPage, paymentsStatusFilter, paymentsMethodFilter, controller.signal);
     return () => controller.abort();
-  }, [activeTab, fetchStats, fetchContestants, fetchUsers, fetchStages, fetchPackages]);
+  }, [activeTab, fetchStats, fetchContestants, fetchUsers, fetchStages, fetchPackages, fetchPayments]);
 
   // Search debounced fetches
   useEffect(() => {
@@ -668,6 +738,63 @@ export default function AdminDashboard() {
   }
 
   // ──────────────────────────────────────────────
+  // Payment Approve / Reject
+  // ──────────────────────────────────────────────
+
+  async function approvePayment(id: string) {
+    setApprovingId(id);
+    try {
+      const res = await fetch('/api/admin/payments/approve', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ paymentId: id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Payment approved! Votes credited.');
+        fetchPayments(paymentsPage, paymentsStatusFilter, paymentsMethodFilter);
+        if (activeTab === 'overview') fetchStats();
+      } else {
+        toast.error(data.message || 'Failed to approve payment');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setApprovingId(null);
+    }
+  }
+
+  function openRejectDialog(id: string) {
+    setSelectedPaymentId(id);
+    setRejectReason('');
+    setRejectDialogOpen(true);
+  }
+
+  async function confirmReject() {
+    if (!selectedPaymentId || !rejectReason.trim()) return;
+    setRejectingId(selectedPaymentId);
+    try {
+      const res = await fetch('/api/admin/payments/reject', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ paymentId: selectedPaymentId, reason: rejectReason }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Payment rejected');
+        setRejectDialogOpen(false);
+        fetchPayments(paymentsPage, paymentsStatusFilter, paymentsMethodFilter);
+      } else {
+        toast.error(data.message || 'Failed to reject payment');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setRejectingId(null);
+    }
+  }
+
+  // ──────────────────────────────────────────────
   // Mock weekly chart data from real stats
   // ──────────────────────────────────────────────
 
@@ -788,6 +915,7 @@ export default function AdminDashboard() {
                   else if (activeTab === 'users') fetchUsers(usersPage, usersSearch, controller.signal);
                   else if (activeTab === 'tournament') fetchStages(controller.signal);
                   else if (activeTab === 'packages') fetchPackages(controller.signal);
+                  else if (activeTab === 'payments') fetchPayments(paymentsPage, paymentsStatusFilter, paymentsMethodFilter, controller.signal);
                 }}
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
@@ -817,6 +945,15 @@ export default function AdminDashboard() {
                 <TabsTrigger value="packages" className="gap-1.5">
                   <Package className="w-4 h-4" />
                   <span className="hidden sm:inline">Packages</span>
+                </TabsTrigger>
+                <TabsTrigger value="payments" className="gap-1.5">
+                  <CreditCard className="w-4 h-4" />
+                  <span className="hidden sm:inline">Payments</span>
+                  {paymentSummary.reviewCount > 0 && (
+                    <Badge className="bg-amber-500 text-white text-[10px] px-1 min-w-4 h-4 flex items-center justify-center">
+                      {paymentSummary.reviewCount}
+                    </Badge>
+                  )}
                 </TabsTrigger>
               </TabsList>
 
@@ -1420,6 +1557,184 @@ export default function AdminDashboard() {
                   )}
                 </motion.div>
               </TabsContent>
+
+              {/* ════════════════════════════════════════ */}
+              {/* TAB: PAYMENTS                           */}
+              {/* ════════════════════════════════════════ */}
+              <TabsContent value="payments">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Awaiting Review', value: paymentSummary.reviewCount, icon: Clock, bg: 'bg-amber-500/10', iconColor: 'text-amber-600 dark:text-amber-400' },
+                    { label: 'Pending', value: paymentSummary.pendingCount, icon: Activity, bg: 'bg-yellow-500/10', iconColor: 'text-yellow-600 dark:text-yellow-400' },
+                    { label: 'Completed', value: paymentSummary.completedCount, icon: Check, bg: 'bg-green-500/10', iconColor: 'text-green-600 dark:text-green-400' },
+                    { label: 'Offline Pending', value: paymentSummary.offlinePendingCount, icon: Building2, bg: 'bg-blue-500/10', iconColor: 'text-blue-600 dark:text-blue-400' },
+                  ].map((s, i) => {
+                    const Icon = s.icon;
+                    return (
+                      <Card key={s.label} className="border-0 shadow-sm">
+                        <CardContent className="p-4">
+                          <div className={`w-8 h-8 rounded-lg ${s.bg} flex items-center justify-center mb-2`}>
+                            <Icon className={`w-4 h-4 ${s.iconColor}`} />
+                          </div>
+                          <p className="text-2xl font-bold">{s.value}</p>
+                          <p className="text-xs text-muted-foreground">{s.label}</p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <Select value={paymentsStatusFilter} onValueChange={(v) => { setPaymentsStatusFilter(v); setPaymentsPage(1); }}>
+                    <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="awaiting_review">Awaiting Review</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={paymentsMethodFilter} onValueChange={(v) => { setPaymentsMethodFilter(v); setPaymentsPage(1); }}>
+                    <SelectTrigger className="w-[160px]"><SelectValue placeholder="Method" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Methods</SelectItem>
+                      <SelectItem value="paystack">Paystack</SelectItem>
+                      <SelectItem value="flutterwave">Flutterwave</SelectItem>
+                      <SelectItem value="offline">Bank Transfer</SelectItem>
+                      <SelectItem value="mock">Mock</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Payments Table */}
+                <Card>
+                  <CardContent className="p-0">
+                    {paymentsLoading ? (
+                      <div className="space-y-3 p-6">
+                        {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+                      </div>
+                    ) : payments.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>User</TableHead>
+                              <TableHead>Package</TableHead>
+                              <TableHead>Method</TableHead>
+                              <TableHead>Amount</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Proof</TableHead>
+                              <TableHead>Date</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {payments.map((p) => {
+                              const isReviewable = p.status === 'awaiting_review' || p.status === 'pending';
+                              const methodIcon = p.paymentMethod === 'paystack' ? <CreditCard className="w-3.5 h-3.5" /> : p.paymentMethod === 'flutterwave' ? <Zap className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />;
+                              return (
+                                <TableRow key={p.id}>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+                                        {p.user.name.charAt(0)}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-medium truncate">{p.user.name}</p>
+                                        <p className="text-[11px] text-muted-foreground truncate">{p.user.email}</p>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <p className="text-sm font-medium">{p.package.name}</p>
+                                    <p className="text-[11px] text-muted-foreground">{p.package.votes + p.package.bonusVotes} votes</p>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-1.5">
+                                      {methodIcon}
+                                      <span className="text-xs capitalize">{p.paymentMethod}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="font-semibold text-sm">{formatCurrency(p.amount)}</TableCell>
+                                  <TableCell>
+                                    {p.status === 'completed' && (
+                                      <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20 text-xs">Completed</Badge>
+                                    )}
+                                    {p.status === 'awaiting_review' && (
+                                      <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20 text-xs">Awaiting Review</Badge>
+                                    )}
+                                    {p.status === 'pending' && (
+                                      <Badge className="bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/20 text-xs">Pending</Badge>
+                                    )}
+                                    {p.status === 'failed' && (
+                                      <Badge className="bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/20 text-xs">Failed</Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    {p.proofImageUrl ? (
+                                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setProofImageUrl(p.proofImageUrl); setProofDialogOpen(true); }}>
+                                        <ImageIcon className="w-3.5 h-3.5 mr-1" />View
+                                      </Button>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-xs text-muted-foreground">{timeAgo(p.createdAt)}</TableCell>
+                                  <TableCell className="text-right">
+                                    {isReviewable && (
+                                      <div className="flex items-center justify-end gap-1">
+                                        <Button
+                                          size="sm"
+                                          className="h-7 text-xs bg-green-500 hover:bg-green-600 text-white"
+                                          disabled={approvingId === p.id}
+                                          onClick={() => approvePayment(p.id)}
+                                        >
+                                          {approvingId === p.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
+                                          Approve
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50"
+                                          disabled={rejectingId === p.id}
+                                          onClick={() => openRejectDialog(p.id)}
+                                        >
+                                          {rejectingId === p.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Ban className="w-3 h-3 mr-1" />}
+                                          Reject
+                                        </Button>
+                                      </div>
+                                    )}
+                                    {p.adminNote && (
+                                      <p className="text-[10px] text-red-500 mt-1 truncate max-w-[120px]" title={p.adminNote}>Reason: {p.adminNote}</p>
+                                    )}
+                                    {p.reviewer && (
+                                      <p className="text-[10px] text-muted-foreground mt-1">By {p.reviewer.name}</p>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <CreditCard className="w-12 h-12 text-muted-foreground/30 mx-auto mb-2" />
+                        <h3 className="font-semibold mb-1">No payments found</h3>
+                        <p className="text-sm text-muted-foreground">No payments match the selected filters</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <PaginationControls
+                  pagination={paymentsPagination}
+                  onPageChange={(p) => setPaymentsPage(p)}
+                />
+              </TabsContent>
             </Tabs>
           </div>
         </div>
@@ -1698,6 +2013,58 @@ export default function AdminDashboard() {
               Create Package
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Payment Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="w-5 h-5 text-red-500" />
+              Reject Payment
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. The user will be notified of the rejection.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="reject-reason">Rejection Reason *</Label>
+              <Textarea
+                id="reject-reason"
+                placeholder="Explain why this payment is being rejected..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground mt-1">{rejectReason.length}/5 minimum characters</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-red-500 hover:bg-red-600 text-white"
+              disabled={rejectReason.trim().length < 5 || !!rejectingId}
+              onClick={confirmReject}
+            >
+              {rejectingId ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Ban className="w-4 h-4 mr-2" />}
+              Reject Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Proof Image Dialog */}
+      <Dialog open={proofDialogOpen} onOpenChange={setProofDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Payment Proof</DialogTitle>
+            <DialogDescription>Uploaded proof screenshot</DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg overflow-hidden bg-muted">
+            <img src={proofImageUrl} alt="Payment proof" className="w-full max-h-[70vh] object-contain" />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -100,7 +100,9 @@ export interface VotePackage {
   order: number;
 }
 
-export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
+export type PaymentMethod = 'flutterwave' | 'paystack' | 'offline' | 'mock';
+
+export type PaymentStatus = 'pending' | 'awaiting_review' | 'completed' | 'failed' | 'refunded';
 
 export interface Payment {
   id: string;
@@ -108,10 +110,23 @@ export interface Payment {
   packageId: string;
   amount: number;
   status: PaymentStatus;
-  paymentMethod: string;
+  paymentMethod: PaymentMethod;
   transactionId?: string;
+  reference?: string;
+  gatewayRef?: string;
+  proofImageUrl?: string;
+  bankName?: string;
+  accountName?: string;
+  accountNumber?: string;
+  depositorName?: string;
+  adminNote?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
   createdAt: string;
+  updatedAt: string;
   package?: VotePackage;
+  user?: { id: string; name: string; email: string };
+  reviewer?: { id: string; name: string } | null;
 }
 
 export interface PurchasedVote {
