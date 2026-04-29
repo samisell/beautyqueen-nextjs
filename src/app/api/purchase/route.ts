@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
           data: {
             userId: user.userId,
             packageId,
+            paymentId: payment.id,
             votesAmount: totalVotes,
             votesUsed: 0,
           },

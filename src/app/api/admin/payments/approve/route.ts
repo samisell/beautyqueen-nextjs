@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { db, withTransaction } from '@/lib/db';
 import { success, error, requireAdmin, getClientIp, rateLimit } from '@/lib/api-helpers';
+import { sendPaymentApprovedEmail } from '@/lib/email';
 
 /**
  * POST /api/admin/payments/approve
@@ -9,8 +10,9 @@ import { success, error, requireAdmin, getClientIp, rateLimit } from '@/lib/api-
  *
  * Admin approves an offline payment.
  * - Changes payment status to 'completed'
- * - Creates PurchasedVote with the package votes
- * - Notifies the user
+ * - Creates PurchasedVote with the package votes (linked to payment)
+ * - Notifies the user via in-app notification
+ * - Sends approval email
  */
 export async function POST(request: NextRequest) {
   try {
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
       where: {
         userId: payment.userId,
         packageId: payment.packageId,
-        createdAt: { gte: payment.createdAt },
+        paymentId: payment.id,
       },
     });
 
@@ -76,6 +78,7 @@ export async function POST(request: NextRequest) {
         data: {
           userId: payment.userId,
           packageId: payment.packageId,
+          paymentId: payment.id,
           votesAmount: totalVotes,
           votesUsed: 0,
         },
@@ -85,11 +88,28 @@ export async function POST(request: NextRequest) {
         data: {
           userId: payment.userId,
           title: 'Payment Approved! 🎉',
-          message: `Your offline payment for ${payment.package.name} (${totalVotes} votes, ${payment.amount.toLocaleString()}) has been approved. Your votes are now available!`,
+          message: `Your offline payment for ${payment.package.name} (${totalVotes} votes, ₦${payment.amount.toLocaleString()}) has been approved. Your votes are now available!`,
           type: 'success',
         },
       });
     });
+
+    // Send approval email (fire-and-forget)
+    const currencySymbols: Record<string, string> = { NGN: '₦', USD: '$' };
+    const currency = process.env.DEFAULT_CURRENCY || 'NGN';
+    const symbol = currencySymbols[currency] || '₦';
+
+    sendPaymentApprovedEmail(
+      payment.userId,
+      payment.user.name,
+      payment.user.email,
+      {
+        packageName: payment.package.name,
+        votes: String(totalVotes),
+        amount: `${symbol}${payment.amount.toLocaleString()}`,
+        reference: payment.reference || payment.transactionId || 'N/A',
+      }
+    ).catch(() => { /* fire-and-forget */ });
 
     return success(
       {

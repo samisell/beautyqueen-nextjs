@@ -81,20 +81,23 @@ model Category {
 }
 
 model Vote {
-  id           String   @id @default(cuid())
-  contestantId String
-  userId       String?
-  voteType     String   @default("free")
-  ipAddress    String?
-  createdAt    DateTime @default(now())
+  id              String         @id @default(cuid())
+  contestantId    String
+  userId          String?
+  voteType        String         @default("free")
+  ipAddress       String?
+  purchasedVoteId String?
+  createdAt       DateTime       @default(now())
 
-  contestant Contestant @relation(fields: [contestantId], references: [id], onDelete: Cascade)
-  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  contestant    Contestant     @relation(fields: [contestantId], references: [id], onDelete: Cascade)
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  purchasedVote PurchasedVote? @relation(fields: [purchasedVoteId], references: [id], onDelete: SetNull)
 
   @@index([contestantId])
   @@index([userId])
   @@index([ipAddress, createdAt])
   @@index([voteType])
+  @@index([purchasedVoteId])
 }
 
 model VotePackage {
@@ -120,15 +123,18 @@ model PurchasedVote {
   id           String   @id @default(cuid())
   userId       String
   packageId    String
+  paymentId    String?
   votesAmount  Int
   votesUsed    Int      @default(0)
   createdAt    DateTime @default(now())
 
   user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   package VotePackage @relation(fields: [packageId], references: [id])
+  votes  Vote[]
 
   @@index([userId])
   @@index([packageId])
+  @@index([paymentId])
 }
 
 model Payment {

@@ -244,6 +244,105 @@ const templates: Record<string, (data: Record<string, string>) => { subject: str
       </div>
     `),
   }),
+
+  paymentSuccessful: (data) => ({
+    subject: `Payment Confirmed — ${data.votes} Votes Credited! 🎉`,
+    html: emailBaseHTML('Payment Successful', `
+      <h2 style="margin:0 0 16px;color:#111827;">Payment Confirmed! 🎉</h2>
+      <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">
+        Hi ${data.name}, your payment has been verified successfully.
+      </p>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;margin:16px 0;">
+        <table style="width:100%;font-size:14px;color:#374151;">
+          <tr><td style="padding:6px 0;"><strong>Package:</strong></td><td>${data.packageName}</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Votes Credited:</strong></td><td>${data.votes} votes</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Amount:</strong></td><td>${data.amount}</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Method:</strong></td><td>${data.method}</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Reference:</strong></td><td><code style="background:#dcfce7;padding:2px 6px;border-radius:4px;">${data.reference || 'N/A'}</code></td></tr>
+        </table>
+      </div>
+      <p style="color:#374151;font-size:14px;margin:0 0 16px;">
+        Your votes are now available in your dashboard. Start voting for your favorite contestants!
+      </p>
+      <p style="color:#6b7280;font-size:13px;margin:0;">
+        If you did not make this payment, please contact support immediately.
+      </p>
+    `),
+  }),
+
+  paymentApproved: (data) => ({
+    subject: `Payment Approved — ${data.votes} Votes Credited! ✅`,
+    html: emailBaseHTML('Payment Approved', `
+      <h2 style="margin:0 0 16px;color:#111827;">Offline Payment Approved! ✅</h2>
+      <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">
+        Hi ${data.name}, your offline payment has been reviewed and approved by our admin team.
+      </p>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;margin:16px 0;">
+        <table style="width:100%;font-size:14px;color:#374151;">
+          <tr><td style="padding:6px 0;"><strong>Package:</strong></td><td>${data.packageName}</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Votes Credited:</strong></td><td>${data.votes} votes</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Amount:</strong></td><td>${data.amount}</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Reference:</strong></td><td><code style="background:#dcfce7;padding:2px 6px;border-radius:4px;">${data.reference || 'N/A'}</code></td></tr>
+        </table>
+      </div>
+      <p style="color:#374151;font-size:14px;margin:0;">
+        Your votes are now available. Head to your dashboard to start voting!
+      </p>
+    `),
+  }),
+
+  paymentRejected: (data) => ({
+    subject: `Payment Not Approved — Action Required`,
+    html: emailBaseHTML('Payment Rejected', `
+      <h2 style="margin:0 0 16px;color:#111827;">Payment Not Approved ❌</h2>
+      <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">
+        Hi ${data.name}, your payment was not approved by our admin team.
+      </p>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px;margin:16px 0;">
+        <table style="width:100%;font-size:14px;color:#374151;">
+          <tr><td style="padding:6px 0;"><strong>Package:</strong></td><td>${data.packageName}</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Amount:</strong></td><td>${data.amount}</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Reference:</strong></td><td><code style="background:#fee2e2;padding:2px 6px;border-radius:4px;">${data.reference || 'N/A'}</code></td></tr>
+          <tr><td style="padding:6px 0;"><strong>Reason:</strong></td><td>${data.reason}</td></tr>
+        </table>
+      </div>
+      <p style="color:#374151;font-size:14px;margin:0 0 16px;">
+        No votes were credited for this payment. If you believe this is an error, please contact our support team with your payment reference for review.
+      </p>
+    `),
+  }),
+
+  paymentFraudWarning: (data) => ({
+    subject: `⚠️ Warning: Fraudulent Payment Detected — Your Account Is At Risk`,
+    html: emailBaseHTML('Fraud Warning', `
+      <h2 style="margin:0 0 16px;color:#dc2626;">⚠️ Fraudulent Activity Detected</h2>
+      <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">
+        Dear ${data.name}, our admin team has identified your recent payment as <strong style="color:#dc2626;">fraudulent</strong>.
+      </p>
+      <div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;padding:20px;margin:16px 0;">
+        <h3 style="margin:0 0 12px;color:#991b1b;font-size:16px;">⚠️ Payment Details</h3>
+        <table style="width:100%;font-size:14px;color:#374151;">
+          <tr><td style="padding:6px 0;"><strong>Package:</strong></td><td>${data.packageName}</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Amount:</strong></td><td>${data.amount}</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Reference:</strong></td><td>${data.reference || 'N/A'}</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Votes Removed:</strong></td><td style="color:#dc2626;font-weight:700;">${data.votesRemoved} votes</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Reason:</strong></td><td>${data.reason}</td></tr>
+        </table>
+      </div>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px;margin:16px 0;">
+        <h3 style="margin:0 0 8px;color:#92400e;font-size:14px;">🚨 Disqualification Warning</h3>
+        <p style="color:#92400e;font-size:14px;line-height:1.6;margin:0;">
+          All votes associated with this payment have been <strong>removed</strong>. Continued fraudulent activity will result in <strong>permanent disqualification</strong> from all tournaments and possible account suspension.
+        </p>
+      </div>
+      <p style="color:#374151;font-size:14px;margin:0 0 16px;">
+        If you believe this is a mistake, please contact our support team immediately with proof of legitimate payment.
+      </p>
+      <p style="color:#6b7280;font-size:13px;margin:0;">
+        This is a serious warning. Further violations may lead to permanent account termination.
+      </p>
+    `),
+  }),
 };
 
 // ──────────────────────────────────────────────
@@ -343,4 +442,32 @@ export async function sendPlatformInstructions(userId: string, name: string, ema
 
 export async function sendPasswordResetOTP(userId: string, name: string, email: string, otp: string) {
   return sendEmail({ to: email, template: 'passwordReset', data: { name, otp }, userId });
+}
+
+export async function sendPaymentSuccessfulEmail(
+  userId: string, name: string, email: string,
+  data: { packageName: string; votes: string; amount: string; method: string; reference: string }
+) {
+  return sendEmail({ to: email, template: 'paymentSuccessful', data: { name, ...data }, userId });
+}
+
+export async function sendPaymentApprovedEmail(
+  userId: string, name: string, email: string,
+  data: { packageName: string; votes: string; amount: string; reference: string }
+) {
+  return sendEmail({ to: email, template: 'paymentApproved', data: { name, ...data }, userId });
+}
+
+export async function sendPaymentRejectedEmail(
+  userId: string, name: string, email: string,
+  data: { packageName: string; amount: string; reference: string; reason: string }
+) {
+  return sendEmail({ to: email, template: 'paymentRejected', data: { name, ...data }, userId });
+}
+
+export async function sendFraudWarningEmail(
+  userId: string, name: string, email: string,
+  data: { packageName: string; amount: string; reference: string; reason: string; votesRemoved: string }
+) {
+  return sendEmail({ to: email, template: 'paymentFraudWarning', data: { name, ...data }, userId });
 }

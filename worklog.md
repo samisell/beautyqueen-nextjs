@@ -41,3 +41,49 @@ Stage Summary:
 - Full email notification system with 7 templates and SMTP configuration
 - Email verification with OTP (6-digit, 10-min expiry)
 - All configuration in .env file (SMTP, Flutterwave, Paystack, App settings)
+
+---
+Task ID: 3
+Agent: Main Orchestrator
+Task: Implement payment auto-vote counting, email notifications on payment, admin fraud rejection with vote removal, and disqualification warning emails
+
+Work Log:
+- Updated Prisma schema: added `purchasedVoteId` to Vote model, `paymentId` to PurchasedVote model
+- This enables precise tracking of which votes came from which payment (for accurate vote removal)
+- Added 4 new email templates to `/lib/email.ts`:
+  - `paymentSuccessful` — sent when online payment verified and votes credited
+  - `paymentApproved` — sent when admin approves offline payment
+  - `paymentRejected` — sent when admin rejects pending/offline payment
+  - `paymentFraudWarning` — sent when admin flags completed payment as fraudulent (with disqualification warning)
+- Added convenience functions: `sendPaymentSuccessfulEmail`, `sendPaymentApprovedEmail`, `sendPaymentRejectedEmail`, `sendFraudWarningEmail`
+- Rewrote `/api/admin/payments/reject/route.ts`:
+  - Now handles both pending AND completed payments
+  - For completed payments: finds PurchasedVote → deletes all linked Votes → decrements contestant totalVotes → deletes PurchasedVote → marks payment as "rejected" → sends fraud warning email
+  - For pending payments: marks as "failed" → sends standard rejection email
+  - All emails are fire-and-forget (non-blocking)
+- Updated `/api/payment/verify/route.ts`:
+  - Creates PurchasedVote linked to payment via `paymentId`
+  - Sends `paymentSuccessful` email after successful verification
+- Updated `/api/admin/payments/approve/route.ts`:
+  - Creates PurchasedVote linked to payment via `paymentId`
+  - Sends `paymentApproved` email after admin approval
+- Updated `/api/vote/route.ts`:
+  - Paid votes now save `purchasedVoteId` for precise tracking
+  - Referral votes also save `purchasedVoteId`
+- Updated `/api/purchase/route.ts`:
+  - Mock payments now link `paymentId` to PurchasedVote
+- Updated Admin Dashboard payments tab:
+  - Added "Flag Fraud" button for completed payments (with tooltip)
+  - Fraud rejection shows consequences dialog (vote removal, email warning, disqualification notice)
+  - Reject dialog dynamically changes based on fraud vs standard rejection
+  - Added "rejected" status badge (⚠️ Rejected)
+- Database re-seeded with updated schema
+- Zero ESLint errors
+
+Stage Summary:
+- Online payments auto-credit votes with email notification to user
+- Admin can approve offline payments → votes credited + approval email sent
+- Admin can reject pending payments → standard rejection email sent
+- Admin can flag completed payments as FRAUD → all associated votes removed + fraud warning email with disqualification notice
+- Complete audit trail: every vote is linked to its purchased vote, which is linked to its payment
+- Precise vote removal when rejecting fraudulent payments (no guessing — exact tracking)

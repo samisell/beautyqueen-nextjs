@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { db, withTransaction } from '@/lib/db';
 import { success, error, getUserFromRequest, getClientIp, rateLimit } from '@/lib/api-helpers';
 import { verifyPayment, type PaymentMethod } from '@/lib/payment-gateways';
+import { sendPaymentSuccessfulEmail } from '@/lib/email';
 
 /**
  * GET /api/payment/verify?reference=xxx&method=flutterwave|paystack
@@ -9,7 +10,7 @@ import { verifyPayment, type PaymentMethod } from '@/lib/payment-gateways';
  * Verifies a payment after the user is redirected back from the gateway.
  * Can be called by the frontend OR as a redirect callback.
  *
- * - If payment is verified as successful → creates PurchasedVote, marks payment completed
+ * - If payment is verified as successful → creates PurchasedVote (linked to payment), marks payment completed, sends email
  * - If payment is pending → returns pending status
  * - If payment failed → marks payment as failed
  */
@@ -42,7 +43,10 @@ export async function GET(request: NextRequest) {
     // Find the payment by reference
     const payment = await db.payment.findFirst({
       where: { reference },
-      include: { package: true },
+      include: {
+        package: true,
+        user: { select: { id: true, name: true, email: true } },
+      },
     });
 
     if (!payment) {
@@ -52,7 +56,7 @@ export async function GET(request: NextRequest) {
     // Already completed — return success
     if (payment.status === 'completed') {
       const purchasedVote = await db.purchasedVote.findFirst({
-        where: { userId: payment.userId, packageId: payment.packageId, createdAt: { gte: payment.createdAt } },
+        where: { userId: payment.userId, packageId: payment.packageId, paymentId: payment.id },
       });
 
       return success({
@@ -64,12 +68,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Already failed
-    if (payment.status === 'failed') {
+    // Already failed or rejected
+    if (payment.status === 'failed' || payment.status === 'rejected') {
       return success({
         paymentId: payment.id,
-        status: 'failed',
-        message: 'Payment was previously marked as failed.',
+        status: payment.status,
+        message: `Payment was previously marked as ${payment.status}.`,
         paymentMethod: payment.paymentMethod,
       });
     }
@@ -81,7 +85,7 @@ export async function GET(request: NextRequest) {
       const totalVotes = payment.package.votes + payment.package.bonusVotes;
 
       // Complete the payment atomically
-      await withTransaction(async (tx) => {
+      const purchasedVote = await withTransaction(async (tx) => {
         await tx.payment.update({
           where: { id: payment.id },
           data: {
@@ -90,10 +94,11 @@ export async function GET(request: NextRequest) {
           },
         });
 
-        await tx.purchasedVote.create({
+        const pv = await tx.purchasedVote.create({
           data: {
             userId: payment.userId,
             packageId: payment.packageId,
+            paymentId: payment.id,
             votesAmount: totalVotes,
             votesUsed: 0,
           },
@@ -107,7 +112,28 @@ export async function GET(request: NextRequest) {
             type: 'success',
           },
         });
+
+        return pv;
       });
+
+      // Send success email (fire-and-forget)
+      const currencySymbols: Record<string, string> = { NGN: '₦', USD: '$' };
+      const currency = process.env.DEFAULT_CURRENCY || 'NGN';
+      const symbol = currencySymbols[currency] || '₦';
+      const methodLabel = method.charAt(0).toUpperCase() + method.slice(1);
+
+      sendPaymentSuccessfulEmail(
+        payment.userId,
+        payment.user.name,
+        payment.user.email,
+        {
+          packageName: payment.package.name,
+          votes: String(totalVotes),
+          amount: `${symbol}${payment.amount.toLocaleString()}`,
+          method: methodLabel,
+          reference: payment.reference || payment.transactionId || 'N/A',
+        }
+      ).catch(() => { /* fire-and-forget */ });
 
       return success({
         paymentId: payment.id,

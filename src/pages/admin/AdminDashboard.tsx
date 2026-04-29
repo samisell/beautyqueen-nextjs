@@ -464,6 +464,7 @@ export default function AdminDashboard() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectAsFraud, setRejectAsFraud] = useState(false);
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
   const [proofDialogOpen, setProofDialogOpen] = useState(false);
   const [proofImageUrl, setProofImageUrl] = useState('');
@@ -1164,9 +1165,10 @@ export default function AdminDashboard() {
     }
   }
 
-  function openRejectDialog(id: string) {
+  function openRejectDialog(id: string, asFraud = false) {
     setSelectedPaymentId(id);
     setRejectReason('');
+    setRejectAsFraud(asFraud);
     setRejectDialogOpen(true);
   }
 
@@ -1177,13 +1179,18 @@ export default function AdminDashboard() {
       const res = await fetch('/api/admin/payments/reject', {
         method: 'POST',
         headers: headers(),
-        body: JSON.stringify({ paymentId: selectedPaymentId, reason: rejectReason }),
+        body: JSON.stringify({ paymentId: selectedPaymentId, reason: rejectReason, isFraud: rejectAsFraud }),
       });
       const data = await res.json();
       if (data.success) {
-        toast.success('Payment rejected');
+        if (data.data?.isFraud) {
+          toast.success(`Fraud payment rejected! ${data.data.votesRemoved} votes removed.`);
+        } else {
+          toast.success('Payment rejected');
+        }
         setRejectDialogOpen(false);
         fetchPayments(paymentsPage, paymentsStatusFilter, paymentsMethodFilter);
+        if (activeTab === 'overview') fetchStats();
       } else {
         toast.error(data.message || 'Failed to reject payment');
       }
@@ -2303,6 +2310,7 @@ export default function AdminDashboard() {
                             <TableBody>
                               {payments.map((p) => {
                                 const isReviewable = p.status === 'awaiting_review' || p.status === 'pending';
+                                const isCompleted = p.status === 'completed';
                                 const methodIcon = p.paymentMethod === 'paystack' ? <CreditCard className="w-3.5 h-3.5" /> : p.paymentMethod === 'flutterwave' ? <Zap className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />;
                                 return (
                                   <TableRow key={p.id}>
@@ -2341,6 +2349,9 @@ export default function AdminDashboard() {
                                       {p.status === 'failed' && (
                                         <Badge className="bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/20 text-xs">Failed</Badge>
                                       )}
+                                      {p.status === 'rejected' && (
+                                        <Badge className="bg-red-600/15 text-red-700 dark:text-red-400 border-red-500/20 text-xs">⚠️ Rejected</Badge>
+                                      )}
                                     </TableCell>
                                     <TableCell>
                                       {p.proofImageUrl ? (
@@ -2369,11 +2380,30 @@ export default function AdminDashboard() {
                                             variant="outline"
                                             className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50"
                                             disabled={rejectingId === p.id}
-                                            onClick={() => openRejectDialog(p.id)}
+                                            onClick={() => openRejectDialog(p.id, false)}
                                           >
                                             {rejectingId === p.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Ban className="w-3 h-3 mr-1" />}
                                             Reject
                                           </Button>
+                                        </div>
+                                      )}
+                                      {isCompleted && (
+                                        <div className="flex items-center justify-end gap-1">
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-7 text-xs text-red-700 border-red-400 bg-red-50 hover:bg-red-100"
+                                                disabled={rejectingId === p.id}
+                                                onClick={() => openRejectDialog(p.id, true)}
+                                              >
+                                                {rejectingId === p.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <AlertTriangle className="w-3 h-3 mr-1" />}
+                                                Flag Fraud
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Reject this payment as fraudulent and remove all associated votes</TooltipContent>
+                                          </Tooltip>
                                         </div>
                                       )}
                                       {p.adminNote && (
@@ -3099,19 +3129,46 @@ export default function AdminDashboard() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Ban className="w-5 h-5 text-red-500" />
-              Reject Payment
+              {rejectAsFraud ? (
+                <>
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                  <span className="text-red-600">Flag as Fraudulent</span>
+                </>
+              ) : (
+                <>
+                  <Ban className="w-5 h-5 text-red-500" />
+                  Reject Payment
+                </>
+              )}
             </DialogTitle>
             <DialogDescription>
-              This action cannot be undone. The user will be notified of the rejection.
+              {rejectAsFraud
+                ? 'This will remove all votes and send a fraud warning email to the user.'
+                : 'This action cannot be undone. The user will be notified of the rejection.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {rejectAsFraud && (
+              <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <Skull className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-red-700 dark:text-red-400">Fraud Rejection Consequences</p>
+                    <ul className="text-xs text-red-600 dark:text-red-400 space-y-0.5">
+                      <li>All votes from this payment will be <strong>permanently removed</strong></li>
+                      <li>Contestant vote totals will be <strong>decremented</strong></li>
+                      <li>A <strong>fraud warning email</strong> with disqualification notice will be sent</li>
+                      <li>The user will receive an <strong>urgent notification</strong> in their dashboard</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
             <div>
-              <Label htmlFor="reject-reason">Rejection Reason *</Label>
+              <Label htmlFor="reject-reason">{rejectAsFraud ? 'Fraud Details *' : 'Rejection Reason *'}</Label>
               <Textarea
                 id="reject-reason"
-                placeholder="Explain why this payment is being rejected..."
+                placeholder={rejectAsFraud ? 'Describe the fraudulent activity detected...' : 'Explain why this payment is being rejected...'}
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={3}
@@ -3126,8 +3183,8 @@ export default function AdminDashboard() {
               disabled={rejectReason.trim().length < 5 || !!rejectingId}
               onClick={confirmReject}
             >
-              {rejectingId ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Ban className="w-4 h-4 mr-2" />}
-              Reject Payment
+              {rejectingId ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : rejectAsFraud ? <AlertTriangle className="w-4 h-4 mr-2" /> : <Ban className="w-4 h-4 mr-2" />}
+              {rejectAsFraud ? 'Flag Fraud & Remove Votes' : 'Reject Payment'}
             </Button>
           </DialogFooter>
         </DialogContent>

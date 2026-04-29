@@ -52,18 +52,6 @@ export async function POST(request: NextRequest) {
       return error('Voting is not available for this contestant', 400);
     }
 
-    // --- Verify the contestant is in an active stage ---
-    if (contestant.status === 'active') {
-      const activeStageCheck = await db.tournamentStage.findFirst({
-        where: {
-          contestants: { some: { id: contestantId } },
-          status: 'active',
-        },
-        select: { id: true },
-      });
-      // If contestant has no active stage, still allow voting (they may be in an un-staged tournament)
-    }
-
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -145,13 +133,14 @@ export async function POST(request: NextRequest) {
           throw new Error('NO_PURCHASED_VOTES');
         }
 
-        // Create the vote
+        // Create the vote with purchasedVoteId for tracking
         await tx.vote.create({
           data: {
             contestantId,
             userId: user.userId,
             voteType: 'paid',
             ipAddress: ip,
+            purchasedVoteId: purchasedVote.id,
           },
         });
 
@@ -210,7 +199,6 @@ export async function POST(request: NextRequest) {
         });
 
         // Check if user has any referral bonus available
-        // (from Referrals where referrerId = userId and bonusVotes > 0)
         const referralBonus = await tx.referral.aggregate({
           where: { referrerId: user.userId },
           _sum: { bonusVotes: true },
@@ -229,6 +217,7 @@ export async function POST(request: NextRequest) {
               userId: user.userId,
               voteType: 'referral',
               ipAddress: ip,
+              purchasedVoteId: referralPurchase.id,
             },
           });
 
@@ -263,6 +252,7 @@ export async function POST(request: NextRequest) {
             userId: user.userId,
             voteType: 'referral',
             ipAddress: ip,
+            purchasedVoteId: newPurchase.id,
           },
         });
 
