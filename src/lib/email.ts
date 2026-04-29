@@ -312,6 +312,44 @@ const templates: Record<string, (data: Record<string, string>) => { subject: str
     `),
   }),
 
+  tournamentJoined: (data) => ({
+    subject: `You're In! Welcome to ${data.tournamentName} 🌟`,
+    html: emailBaseHTML('Tournament Registration Confirmed', `
+      <h2 style="margin:0 0 16px;color:#111827;">You're Officially a Contestant! 🌟</h2>
+      <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">
+        Congratulations, <strong>${data.name}</strong>! You have successfully joined the <strong>${data.tournamentName}</strong> competition.
+      </p>
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px;margin:16px 0;">
+        <h3 style="margin:0 0 12px;color:#9a3412;">Your Contestant Details</h3>
+        <table style="width:100%;font-size:14px;color:#374151;">
+          <tr><td style="padding:6px 0;"><strong>Contestant ID:</strong></td><td><code style="background:#dcfce7;padding:2px 8px;border-radius:4px;font-weight:700;">${data.contestantId}</code></td></tr>
+          <tr><td style="padding:6px 0;"><strong>Tournament:</strong></td><td>${data.tournamentName}</td></tr>
+          <tr><td style="padding:6px 0;"><strong>Stage:</strong></td><td>${data.stageName}</td></tr>
+        </table>
+      </div>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;margin:16px 0;">
+        <h3 style="margin:0 0 8px;color:#166534;">🚀 Share Your Profile & Get More Votes!</h3>
+        <p style="color:#374151;font-size:14px;line-height:1.6;margin:0 0 8px;">
+          The more people know about you, the more votes you'll get! Share your contestant profile link with friends, family, and on social media to boost your chances of winning.
+        </p>
+        <p style="color:#374151;font-size:14px;margin:0;">
+          <strong>Tips:</strong> Ask your supporters to vote daily, share your contestant ID, and encourage them to purchase vote packages for extra support!
+        </p>
+      </div>
+      <p style="color:#374151;font-size:14px;margin:0 0 16px;">
+        Log in to your dashboard to track your votes, view the leaderboard, and manage your contestant profile.
+      </p>
+      <div style="text-align:center;margin:24px 0;">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL || ''}/dashboard" style="display:inline-block;background:linear-gradient(135deg,#f97316,#ea580c);color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:8px;font-weight:600;font-size:14px;">
+          Go to Your Dashboard →
+        </a>
+      </div>
+      <p style="color:#6b7280;font-size:13px;margin:0;">
+        Good luck in the competition! 🏆
+      </p>
+    `),
+  }),
+
   paymentFraudWarning: (data) => ({
     subject: `⚠️ Warning: Fraudulent Payment Detected — Your Account Is At Risk`,
     html: emailBaseHTML('Fraud Warning', `
@@ -470,4 +508,11 @@ export async function sendFraudWarningEmail(
   data: { packageName: string; amount: string; reference: string; reason: string; votesRemoved: string }
 ) {
   return sendEmail({ to: email, template: 'paymentFraudWarning', data: { name, ...data }, userId });
+}
+
+export async function sendTournamentJoinedEmail(
+  userId: string, name: string, email: string,
+  data: { tournamentName: string; stageName: string; contestantId: string }
+) {
+  return sendEmail({ to: email, template: 'tournamentJoined', data: { name, ...data }, userId });
 }

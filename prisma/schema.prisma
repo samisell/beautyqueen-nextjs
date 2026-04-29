@@ -29,6 +29,7 @@ model User {
   notifications  Notification[]
   voteLinks      VoteLink[]
   eliminatedContestants Contestant[]  @relation("Eliminator")
+  contestantProfile    Contestant?     @relation("ContestantUser")
   bonusVotes     BonusVote[]  @relation("BonusVoteAdmin")
   emailVerification EmailVerification?
 
@@ -47,6 +48,7 @@ model Contestant {
   status           String    @default("active")
   totalVotes       Int       @default(0)
   stageId          String?
+  userId           String?   @unique
   eliminatedAt     DateTime?
   eliminationReason String?
   eliminatedById   String?
@@ -57,7 +59,9 @@ model Contestant {
   stage            TournamentStage?  @relation(fields: [stageId], references: [id])
   categoryRel      Category?         @relation(fields: [categoryId], references: [id])
   eliminatedBy     User?             @relation("Eliminator", fields: [eliminatedById], references: [id])
+  user             User?             @relation("ContestantUser", fields: [userId], references: [id])
   bonusVotes       BonusVote[]
+  publicPayments   Payment[]          @relation("PaymentContestant")
 
   @@index([category])
   @@index([status])
@@ -158,14 +162,17 @@ model Payment {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  contestantId   String?
   user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   package VotePackage @relation(fields: [packageId], references: [id])
   reviewer User?      @relation("PaymentReviewer", fields: [reviewedBy], references: [id])
+  contestant Contestant?  @relation("PaymentContestant", fields: [contestantId], references: [id])
 
   @@index([userId])
   @@index([status])
   @@index([paymentMethod])
   @@index([createdAt])
+  @@index([contestantId])
 }
 
 model Tournament {

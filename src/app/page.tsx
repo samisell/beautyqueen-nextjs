@@ -27,6 +27,7 @@ import DashboardPurchases from '@/pages/dashboard/DashboardPurchases';
 import DashboardReferrals from '@/pages/dashboard/DashboardReferrals';
 import DashboardSettings from '@/pages/dashboard/DashboardSettings';
 import AdminDashboard from '@/pages/admin/AdminDashboard';
+import PublicVotingPage from '@/pages/PublicVotingPage';
 
 import type { PageRoute } from '@/types';
 
@@ -38,6 +39,7 @@ const dashboardPages: PageRoute[] = [
   'dashboard-referrals',
   'dashboard-settings',
   'admin',
+  'public-vote',
 ];
 
 function PageRenderer() {
@@ -63,6 +65,7 @@ function PageRenderer() {
     'dashboard-referrals': <DashboardReferrals />,
     'dashboard-settings': <DashboardSettings />,
     admin: <AdminDashboard />,
+    'public-vote': <PublicVotingPage />,
   };
 
   return pageMap[currentPage] || <HomePage />;

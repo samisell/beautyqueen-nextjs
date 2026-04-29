@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       where.category = category;
     }
     if (search) {
-      where.name = { contains: search.trim(), mode: 'insensitive' };
+      where.name = { contains: search.trim() };
     }
 
     const [contestants, total] = await Promise.all([

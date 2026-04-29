@@ -10,6 +10,7 @@ import {
   X,
   ChevronDown,
   SlidersHorizontal,
+  ShoppingBag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -71,6 +72,10 @@ export default function LeaderboardPage() {
           params.set('category', selectedCategory);
         }
 
+        if (searchQuery) {
+          params.set('search', searchQuery.trim());
+        }
+
         const res = await fetch(`/api/leaderboard?${params}`);
         const data = await res.json();
 
@@ -90,7 +95,7 @@ export default function LeaderboardPage() {
         setLoadingMore(false);
       }
     },
-    [selectedCategory]
+    [selectedCategory, searchQuery]
   );
 
   useEffect(() => {
@@ -98,8 +103,12 @@ export default function LeaderboardPage() {
   }, [fetchCategories]);
 
   useEffect(() => {
-    setPage(1);
-    fetchLeaderboard(1, false);
+    // Debounce search — re-fetch when searchQuery changes
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchLeaderboard(1, false);
+    }, 400);
+    return () => clearTimeout(timer);
   }, [fetchLeaderboard]);
 
   const handleCategoryChange = (cat: string) => {
@@ -107,8 +116,6 @@ export default function LeaderboardPage() {
   };
 
   const handleSearch = () => {
-    // Filter client-side from current entries based on search query
-    // A full implementation would pass search to API
     setPage(1);
     fetchLeaderboard(1, false);
   };
@@ -118,14 +125,6 @@ export default function LeaderboardPage() {
     setPage(nextPage);
     fetchLeaderboard(nextPage, true);
   };
-
-  const filteredEntries = searchQuery
-    ? entries.filter(
-        (e) =>
-          e.contestant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          e.contestant.category.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : entries;
 
   return (
     <div className="min-h-screen py-12 sm:py-16">
@@ -234,7 +233,7 @@ export default function LeaderboardPage() {
             <p className="text-sm text-muted-foreground">
               Showing{' '}
               <span className="font-semibold text-foreground">
-                {filteredEntries.length}
+                {entries.length}
               </span>{' '}
               of{' '}
               <span className="font-semibold text-foreground">{total}</span>{' '}
@@ -258,7 +257,7 @@ export default function LeaderboardPage() {
               <Skeleton key={i} className="aspect-[3/4] rounded-2xl" />
             ))}
           </div>
-        ) : filteredEntries.length > 0 ? (
+        ) : entries.length > 0 ? (
           <>
             {/* Contestants Grid */}
             <motion.div
@@ -266,7 +265,7 @@ export default function LeaderboardPage() {
               animate="visible"
               className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6"
             >
-              {filteredEntries.map((entry, i) => (
+              {entries.map((entry, i) => (
                 <motion.div
                   key={entry.contestant.id}
                   variants={fadeInUp}

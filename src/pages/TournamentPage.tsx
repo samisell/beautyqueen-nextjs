@@ -19,6 +19,7 @@ import {
   Zap,
   Target,
   Ban,
+  UserPlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,6 +28,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import ContestantCard from '@/components/contestants/ContestantCard';
 import { useNavigationStore } from '@/stores/navigation-store';
+import { useAuthStore } from '@/stores/auth-store';
 import type { TournamentPublicData, Tournament, TournamentStage } from '@/types';
 
 const fadeInUp = {
@@ -152,6 +154,7 @@ function formatCurrency(amount: number, currency: string) {
 
 export default function TournamentPage() {
   const { navigate } = useNavigationStore();
+  const { isAuthenticated } = useAuthStore();
   const [data, setData] = useState<TournamentPublicData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -429,6 +432,30 @@ export default function TournamentPage() {
                                   <span>{progressPercent}%</span>
                                 </div>
                                 <Progress value={progressPercent} className="h-2" />
+                              </div>
+                            )}
+
+                            {/* Join This Stage button for active/upcoming stages */}
+                            {(isActive || stage.status === 'upcoming') && isAuthenticated && (
+                              <div className="mt-5">
+                                <Button
+                                  className="w-full rounded-xl bg-gradient-to-r from-primary to-orange-500 hover:from-primary/90 hover:to-orange-600 text-white font-semibold"
+                                  onClick={() => navigate('dashboard', { tournamentId: tournament!.id, stageId: stage.id })}
+                                >
+                                  <UserPlus className="w-4 h-4 mr-2" />
+                                  Join This Stage
+                                </Button>
+                              </div>
+                            )}
+                            {(isActive || stage.status === 'upcoming') && !isAuthenticated && (
+                              <div className="mt-5">
+                                <Button
+                                  className="w-full rounded-xl bg-gradient-to-r from-primary to-orange-500 hover:from-primary/90 hover:to-orange-600 text-white font-semibold"
+                                  onClick={() => navigate('login')}
+                                >
+                                  <UserPlus className="w-4 h-4 mr-2" />
+                                  Sign In to Join This Stage
+                                </Button>
                               </div>
                             )}
 

@@ -20,7 +20,8 @@ export type PageRoute =
   | 'dashboard-purchases'
   | 'dashboard-referrals'
   | 'dashboard-settings'
-  | 'admin';
+  | 'admin'
+  | 'public-vote';
 
 export interface User {
   id: string;
@@ -102,7 +103,7 @@ export interface VotePackage {
 
 export type PaymentMethod = 'flutterwave' | 'paystack' | 'offline' | 'mock';
 
-export type PaymentStatus = 'pending' | 'awaiting_review' | 'completed' | 'failed' | 'refunded';
+export type PaymentStatus = 'pending' | 'awaiting_review' | 'completed' | 'failed' | 'refunded' | 'rejected';
 
 export interface Payment {
   id: string;

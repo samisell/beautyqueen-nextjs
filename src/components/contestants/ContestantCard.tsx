@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ArrowUpRight, TrendingUp } from 'lucide-react';
+import { Heart, ArrowUpRight, TrendingUp, ShoppingBag } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -166,23 +166,39 @@ export default function ContestantCard({
             </div>
 
             {showVoteButton && (
-              <motion.div whileTap={{ scale: 0.9 }}>
-                <Button
-                  size="sm"
-                  className={`rounded-full shadow-lg ${
-                    hasVoted
-                      ? 'bg-green-500 hover:bg-green-500'
-                      : 'bg-primary hover:bg-primary/90'
-                  }`}
-                  onClick={handleVote}
-                  disabled={isVoting || hasVoted}
-                >
-                  <Heart
-                    className={`w-3.5 h-3.5 mr-1 ${hasVoted ? 'fill-white' : ''}`}
-                  />
-                  {hasVoted ? 'Voted' : 'Vote'}
-                </Button>
-              </motion.div>
+              <div className="flex items-center gap-2">
+                <motion.div whileTap={{ scale: 0.9 }}>
+                  <Button
+                    size="sm"
+                    className={`rounded-full shadow-lg ${
+                      hasVoted
+                        ? 'bg-green-500 hover:bg-green-500'
+                        : 'bg-primary hover:bg-primary/90'
+                    }`}
+                    onClick={handleVote}
+                    disabled={isVoting || hasVoted}
+                  >
+                    <Heart
+                      className={`w-3.5 h-3.5 mr-1 ${hasVoted ? 'fill-white' : ''}`}
+                    />
+                    {hasVoted ? 'Voted' : 'Vote'}
+                  </Button>
+                </motion.div>
+                <motion.div whileTap={{ scale: 0.9 }}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="rounded-full shadow-lg bg-white/90 backdrop-blur-sm text-black hover:bg-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate('public-vote', { id: contestant.id });
+                    }}
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5 mr-1" />
+                    Buy
+                  </Button>
+                </motion.div>
+              </div>
             )}
           </div>
         </div>

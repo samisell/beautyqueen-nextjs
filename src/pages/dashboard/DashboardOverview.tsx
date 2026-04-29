@@ -25,6 +25,16 @@ import {
   CalendarDays,
   X,
   ChevronRight,
+  Crown,
+  Copy,
+  Check,
+  MessageCircle,
+  Send,
+  Sparkles,
+  ShieldCheck,
+  UserPlus,
+  ChevronDown,
+  ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +42,16 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -45,6 +65,9 @@ import { useNavigationStore } from '@/stores/navigation-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { toast } from 'sonner';
 
+// ────────────────────────────────────────────
+// Interfaces
+// ────────────────────────────────────────────
 interface RecentVote {
   id: string;
   contestantId: string;
@@ -71,21 +94,64 @@ interface NotificationData {
   createdAt: string;
 }
 
-interface AvailableTournament {
+interface ContestantData {
   id: string;
+  contestantCode: string;
   name: string;
-  description?: string;
-  nextStage: {
+  bio?: string | null;
+  imageUrl: string;
+  category: string;
+  categoryId?: string | null;
+  status: 'active' | 'eliminated' | 'winner';
+  totalVotes: number;
+  voteCount: number;
+  rank: number | null;
+  votingEnabled: boolean;
+  createdAt: string;
+  eliminatedAt?: string | null;
+  eliminationReason?: string | null;
+  stage: {
     id: string;
     name: string;
+    description?: string | null;
     startDate: string;
+    endDate: string;
+    status: string;
+    order: number;
     minVotes: number;
-    maxContestants?: number;
-    _count: { contestants: number };
+    maxContestants?: number | null;
   } | null;
-  totalStages: number;
+  tournament: {
+    id: string;
+    name: string;
+    description?: string | null;
+    status: string;
+  } | null;
+  categoryInfo: {
+    id: string;
+    name: string;
+    description?: string | null;
+    icon?: string | null;
+  } | null;
+  platform: {
+    name: string;
+    votePrice: string;
+    currency: string;
+  };
 }
 
+interface CategoryData {
+  id: string;
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  order: number;
+  contestantCount: number;
+}
+
+// ────────────────────────────────────────────
+// Animation variants
+// ────────────────────────────────────────────
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
@@ -95,6 +161,9 @@ const fadeInUp = {
   }),
 };
 
+// ────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────
 function formatRelativeTime(dateStr: string): string {
   const now = Date.now();
   const date = new Date(dateStr).getTime();
@@ -152,26 +221,109 @@ function getVoteTypeBadge(type: string) {
   }
 }
 
+function getStageStatusBadge(status: string) {
+  switch (status) {
+    case 'active':
+      return (
+        <Badge className="bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400 text-xs border-0">
+          ● Active
+        </Badge>
+      );
+    case 'upcoming':
+      return (
+        <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 text-xs border-0">
+          ○ Upcoming
+        </Badge>
+      );
+    case 'completed':
+      return (
+        <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-950/40 dark:text-gray-400 text-xs border-0">
+          ✓ Completed
+        </Badge>
+      );
+    default:
+      return <Badge variant="secondary" className="text-xs">{status}</Badge>;
+  }
+}
+
+// ────────────────────────────────────────────
+// Competition Rules
+// ────────────────────────────────────────────
+const competitionRules = [
+  'You must have a verified email address',
+  'You can only join one tournament at a time',
+  'Your profile will be visible on the public leaderboard',
+  'Votes are counted from the public; encourage sharing your link',
+  'Admin reserves the right to eliminate contestants for fraudulent activity',
+  'Minimum votes are required to advance to the next stage',
+  'All payments are final and non-refundable',
+];
+
+// ────────────────────────────────────────────
+// Component
+// ────────────────────────────────────────────
 export default function DashboardOverview() {
-  const { navigate } = useNavigationStore();
+  const { navigate, pageParams } = useNavigationStore();
   const { user, token } = useAuthStore();
+
+  // Data state
   const [stats, setStats] = useState<UserStatsData | null>(null);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Contestant state
+  const [contestant, setContestant] = useState<ContestantData | null>(null);
+  const [contestantLoading, setContestantLoading] = useState(true);
+  const [isContestant, setIsContestant] = useState(false);
+  const [isEliminated, setIsEliminated] = useState(false);
+
+  // UI state
   const [markingAllRead, setMarkingAllRead] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [isEliminated, setIsEliminated] = useState(false);
-  const [eliminationInfo, setEliminationInfo] = useState<{ reason?: string; date?: string }>({});
-  const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
-  const [availableTournaments, setAvailableTournaments] = useState<AvailableTournament[]>([]);
-  const [enrollLoading, setEnrollLoading] = useState(false);
   const [votingEnabled, setVotingEnabled] = useState(true);
+
+  // Join Tournament Dialog state
+  const [rulesDialogOpen, setRulesDialogOpen] = useState(false);
+  const [categories, setCategories] = useState<CategoryData[]>([]);
+  const [joinForm, setJoinForm] = useState({
+    name: '',
+    category: '',
+    bio: '',
+    imageUrl: '',
+  });
+  const [joinLoading, setJoinLoading] = useState(false);
 
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
+
+  // ────────────────────────────────────────────
+  // Data fetchers
+  // ────────────────────────────────────────────
+  const fetchContestant = useCallback(async () => {
+    try {
+      const res = await fetch('/api/user/my-contestant', { headers });
+      const data = await res.json();
+      if (data.success) {
+        if (data.data) {
+          setContestant(data.data);
+          setIsContestant(true);
+          setIsEliminated(data.data.status === 'eliminated');
+          setVotingEnabled(data.data.votingEnabled ?? true);
+        } else {
+          setContestant(null);
+          setIsContestant(false);
+          setIsEliminated(false);
+        }
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setContestantLoading(false);
+    }
+  }, [token]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -179,7 +331,7 @@ export default function DashboardOverview() {
       const data = await res.json();
       if (data.success) setStats(data.data);
     } catch {
-      toast.error('Failed to load stats');
+      // Ignore
     }
   }, [token]);
 
@@ -192,19 +344,64 @@ export default function DashboardOverview() {
         setUnreadCount(data.meta?.unreadCount ?? data.data?.filter((n: NotificationData) => !n.isRead).length ?? 0);
       }
     } catch {
-      toast.error('Failed to load notifications');
+      // Ignore
     }
   }, [token]);
 
+  const checkVotingStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tournament', { headers });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setVotingEnabled(data.data.votingEnabled ?? true);
+      }
+    } catch {
+      // Ignore
+    }
+  }, [token]);
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await fetch('/api/categories');
+      const data = await res.json();
+      if (data.success) setCategories(data.data || []);
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  // ────────────────────────────────────────────
+  // Initial data load
+  // ────────────────────────────────────────────
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      await Promise.all([fetchStats(), fetchNotifications(), checkEliminationStatus(), checkVotingStatus()]);
+      await Promise.all([fetchContestant(), fetchStats(), fetchNotifications(), checkVotingStatus()]);
       setLoading(false);
     }
     fetchData();
-  }, [fetchStats, fetchNotifications, checkEliminationStatus, checkVotingStatus]);
+  }, [fetchContestant, fetchStats, fetchNotifications, checkVotingStatus]);
 
+  // ────────────────────────────────────────────
+  // Detect tournamentId / stageId from pageParams
+  // ────────────────────────────────────────────
+  useEffect(() => {
+    if (pageParams?.tournamentId && pageParams?.stageId) {
+      setRulesDialogOpen(true);
+      fetchCategories();
+      setJoinForm((prev) => ({
+        ...prev,
+        name: user?.name || '',
+        imageUrl: user?.avatar || '',
+      }));
+      // Clear params so dialog doesn't re-open on re-render
+      useNavigationStore.getState().navigate('dashboard', {});
+    }
+  }, []);
+
+  // ────────────────────────────────────────────
+  // Handlers
+  // ────────────────────────────────────────────
   const handleMarkAllRead = async () => {
     setMarkingAllRead(true);
     try {
@@ -238,59 +435,96 @@ export default function DashboardOverview() {
     }
   };
 
-  // Check if current user (as contestant) is eliminated
-  const checkEliminationStatus = useCallback(async () => {
-    if (!user) return;
-    try {
-      const res = await fetch('/api/contestants?limit=100', { headers });
-      const data = await res.json();
-      if (data.success && data.data) {
-        const myContestant = data.data.find((c: { status: string; eliminationReason?: string | null; eliminatedAt?: string | null }) => c.status === 'eliminated');
-        if (myContestant) {
-          setIsEliminated(true);
-          setEliminationInfo({
-            reason: myContestant.eliminationReason || undefined,
-            date: myContestant.eliminatedAt || undefined,
-          });
-        } else {
-          setIsEliminated(false);
-        }
-      }
-    } catch {
-      // Ignore
-    }
-  }, [user, token]);
+  // Share contestant profile
+  const contestantShareUrl = contestant
+    ? `${window.location.origin}/vote/${contestant.id}`
+    : '';
 
-  const checkVotingStatus = useCallback(async () => {
-    try {
-      const res = await fetch('/api/tournament', { headers });
-      const data = await res.json();
-      if (data.success && data.data) {
-        setVotingEnabled(data.data.votingEnabled ?? true);
-      }
-    } catch {
-      // Ignore
-    }
-  }, [token]);
-
-  const fetchAvailableTournaments = useCallback(async () => {
-    setEnrollLoading(true);
-    try {
-      const res = await fetch('/api/tournaments/available', { headers });
-      const data = await res.json();
-      if (data.success) setAvailableTournaments(data.data || []);
-    } catch {
-      // Ignore
-    } finally {
-      setEnrollLoading(false);
-    }
-  }, [token]);
-
-  const openEnrollDialog = () => {
-    setEnrollDialogOpen(true);
-    fetchAvailableTournaments();
+  const handleCopyContestantLink = () => {
+    navigator.clipboard.writeText(contestantShareUrl);
+    setCopied(true);
+    toast.success('Profile link copied to clipboard!');
+    setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleShareWhatsApp = () => {
+    const text = `Vote for ${contestant?.name} in ${contestant?.tournament?.name || 'Beauty Vote'}! ${contestantShareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleShareTwitter = () => {
+    const text = `Vote for ${contestant?.name}!`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(contestantShareUrl)}`, '_blank');
+  };
+
+  const handleShareTelegram = () => {
+    const text = `Vote for ${contestant?.name}!`;
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(contestantShareUrl)}&text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  // Open join dialog from CTA or browse tournaments
+  const openJoinDialog = () => {
+    fetchCategories();
+    setJoinForm({
+      name: user?.name || '',
+      category: '',
+      bio: '',
+      imageUrl: user?.avatar || '',
+    });
+    setRulesDialogOpen(true);
+  };
+
+  // Join tournament handler
+  const handleJoinTournament = async () => {
+    if (!pageParams?.tournamentId || !pageParams?.stageId) {
+      toast.error('Missing tournament or stage information');
+      return;
+    }
+
+    if (!joinForm.name.trim()) {
+      toast.error('Please enter a display name');
+      return;
+    }
+    if (!joinForm.category) {
+      toast.error('Please select a category');
+      return;
+    }
+
+    setJoinLoading(true);
+    try {
+      const res = await fetch('/api/tournaments/join', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          tournamentId: pageParams.tournamentId,
+          stageId: pageParams.stageId,
+          name: joinForm.name.trim(),
+          bio: joinForm.bio.trim() || undefined,
+          imageUrl: joinForm.imageUrl || `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(joinForm.name.trim())}`,
+          category: joinForm.category,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message || 'Successfully joined the tournament!');
+        setRulesDialogOpen(false);
+        // Refresh contestant data
+        await fetchContestant();
+        // Clear params
+        useNavigationStore.getState().navigate('dashboard', {});
+      } else {
+        toast.error(data.error || data.message || 'Failed to join tournament');
+      }
+    } catch {
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setJoinLoading(false);
+    }
+  };
+
+  // ────────────────────────────────────────────
+  // Date display
+  // ────────────────────────────────────────────
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -298,6 +532,9 @@ export default function DashboardOverview() {
     day: 'numeric',
   });
 
+  // ────────────────────────────────────────────
+  // Stat cards
+  // ────────────────────────────────────────────
   const statCards = [
     {
       label: 'Total Votes Cast',
@@ -333,6 +570,9 @@ export default function DashboardOverview() {
     },
   ];
 
+  // ────────────────────────────────────────────
+  // Quick actions
+  // ────────────────────────────────────────────
   const quickActions = [
     {
       label: 'Vote Now',
@@ -359,12 +599,16 @@ export default function DashboardOverview() {
 
   const recentVotes = stats?.recentVotes?.slice(0, 5) ?? [];
 
+  // ────────────────────────────────────────────
+  // Render
+  // ────────────────────────────────────────────
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex gap-6">
           <DashboardSidebar />
           <div className="flex-1 min-w-0 space-y-6">
+
             {/* Greeting */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -378,8 +622,237 @@ export default function DashboardOverview() {
               <p className="text-muted-foreground mt-1">{today}</p>
             </motion.div>
 
+            {/* ────────────────────────────────────── */}
+            {/* Contestant Status / Join CTA           */}
+            {/* ────────────────────────────────────── */}
+            <AnimatePresence mode="wait">
+              {contestantLoading ? (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <Skeleton className="h-48 rounded-2xl" />
+                </motion.div>
+              ) : isContestant && contestant ? (
+                <motion.div
+                  key="contestant-panel"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Card className="border-0 shadow-sm overflow-hidden">
+                    {/* Gradient header */}
+                    <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-400 px-6 py-5">
+                      <div className="flex items-center gap-4">
+                        {/* Avatar */}
+                        <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/40 overflow-hidden flex-shrink-0">
+                          {contestant.imageUrl ? (
+                            <img
+                              src={contestant.imageUrl}
+                              alt={contestant.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white text-xl font-bold">
+                              {contestant.name.charAt(0)}
+                            </div>
+                          )}
+                        </div>
+                        {/* Name & info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="text-xl font-bold text-white truncate">{contestant.name}</h2>
+                            <Badge className="bg-white/20 text-white border-0 text-xs backdrop-blur-sm">
+                              #{contestant.contestantCode}
+                            </Badge>
+                            {contestant.status === 'active' && (
+                              <Badge className="bg-green-500/30 text-white border-0 text-xs backdrop-blur-sm">
+                                Active
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-white/80 text-sm mt-1 truncate">
+                            {contestant.tournament?.name || 'Tournament'} &middot; {contestant.stage?.name || 'Stage'}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            {contestant.stage && getStageStatusBadge(contestant.stage.status)}
+                            {contestant.categoryInfo && (
+                              <Badge variant="secondary" className="text-xs bg-white/15 text-white border-0 backdrop-blur-sm">
+                                {contestant.categoryInfo.name}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stats row */}
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-3 gap-4 mb-6">
+                        <div className="text-center">
+                          <p className="text-2xl sm:text-3xl font-bold text-primary">
+                            {contestant.voteCount?.toLocaleString() || contestant.totalVotes?.toLocaleString() || '0'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">Total Votes</p>
+                        </div>
+                        <div className="text-center border-x border-border">
+                          <p className="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">
+                            {contestant.rank ? `#${contestant.rank}` : '—'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">Current Rank</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                            {contestant.stage?.minVotes || '0'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">Min Votes to Advance</p>
+                        </div>
+                      </div>
+
+                      {/* Share Profile Section */}
+                      {contestant.status === 'active' && (
+                        <>
+                          <Separator className="mb-5" />
+                          <div>
+                            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                              <Share2 className="w-4 h-4 text-primary" />
+                              Share Your Profile & Get More Votes
+                            </h3>
+                            <p className="text-xs text-muted-foreground mb-4">
+                              Share your contestant link with friends and followers. Every vote counts toward your ranking!
+                            </p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {/* Copy Link */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl"
+                                onClick={handleCopyContestantLink}
+                              >
+                                {copied ? (
+                                  <>
+                                    <Check className="w-4 h-4 mr-1.5 text-green-500" />
+                                    Copied!
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-4 h-4 mr-1.5" />
+                                    Copy Link
+                                  </>
+                                )}
+                              </Button>
+                              {/* WhatsApp */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl border-green-200 hover:bg-green-50 dark:border-green-800 dark:hover:bg-green-950/30"
+                                onClick={handleShareWhatsApp}
+                              >
+                                <MessageCircle className="w-4 h-4 mr-1.5 text-green-600 dark:text-green-400" />
+                                <span className="text-green-700 dark:text-green-400 font-medium">WhatsApp</span>
+                              </Button>
+                              {/* X (Twitter) */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900/30"
+                                onClick={handleShareTwitter}
+                              >
+                                <span className="font-bold text-sm mr-1.5">X</span>
+                                <span className="font-medium">Post</span>
+                              </Button>
+                              {/* Telegram */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl border-sky-200 hover:bg-sky-50 dark:border-sky-800 dark:hover:bg-sky-950/30"
+                                onClick={handleShareTelegram}
+                              >
+                                <Send className="w-4 h-4 mr-1.5 text-sky-600 dark:text-sky-400" />
+                                <span className="text-sky-700 dark:text-sky-400 font-medium">Telegram</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Voting disabled banner for contestant */}
+                      {contestant.status === 'active' && !votingEnabled && (
+                        <div className="mt-4">
+                          <Card className="border-2 border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/10">
+                            <CardContent className="p-4 flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                                <AlertCircle className="w-5 h-5 text-amber-600" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-sm text-amber-700 dark:text-amber-400">Voting is Temporarily Paused</p>
+                                <p className="text-xs text-muted-foreground">Please check back later for updates</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ) : !isEliminated ? (
+                /* ────────────────────────────────────── */
+                /* Not a contestant — Join Tournament CTA */
+                /* ────────────────────────────────────── */
+                <motion.div
+                  key="join-cta"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Card className="border-0 shadow-sm overflow-hidden">
+                    <div className="bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-400 px-6 sm:px-8 py-8 sm:py-10 relative overflow-hidden">
+                      {/* Background decorations */}
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                      <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+                      <div className="relative z-10 text-center">
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm mb-4">
+                          <Crown className="w-8 h-8 text-white" />
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+                          Join a Tournament
+                        </h2>
+                        <p className="text-white/80 text-sm sm:text-base max-w-md mx-auto mb-6">
+                          Enter the competition and let the world vote for you! Showcase your talent and win amazing prizes.
+                        </p>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                          <Button
+                            size="lg"
+                            className="bg-white text-orange-600 hover:bg-white/90 rounded-xl font-semibold shadow-lg"
+                            onClick={() => navigate('tournament')}
+                          >
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Browse Tournaments
+                          </Button>
+                          <Button
+                            size="lg"
+                            variant="outline"
+                            className="border-white/30 text-white hover:bg-white/10 rounded-xl bg-transparent"
+                            onClick={() => navigate('leaderboard')}
+                          >
+                            <Trophy className="w-4 h-4 mr-2" />
+                            View Leaderboard
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
             {/* Eliminated Contestant Banner */}
-            {isEliminated && (
+            {isEliminated && contestant && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -396,18 +869,18 @@ export default function DashboardOverview() {
                           Contestant Status: Eliminated
                         </h2>
                         <p className="text-sm text-muted-foreground mb-3">
-                          {eliminationInfo.reason
-                            ? `Reason: ${eliminationInfo.reason}`
+                          {contestant.eliminationReason
+                            ? `Reason: ${contestant.eliminationReason}`
                             : 'You have been eliminated from the current tournament stage.'}
-                          {eliminationInfo.date && (
+                          {contestant.eliminatedAt && (
                             <span className="block text-xs text-muted-foreground mt-1">
-                              Eliminated on {new Date(eliminationInfo.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                              Eliminated on {new Date(contestant.eliminatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                             </span>
                           )}
                         </p>
                         <div className="flex flex-col sm:flex-row gap-2">
                           <Button
-                            onClick={openEnrollDialog}
+                            onClick={() => navigate('tournament')}
                             className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
                           >
                             <LogIn className="w-4 h-4 mr-2" />
@@ -429,91 +902,148 @@ export default function DashboardOverview() {
               </motion.div>
             )}
 
-            {/* Voting Disabled Banner (for non-eliminated users) */}
-            {!isEliminated && !votingEnabled && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-              >
-                <Card className="border-2 border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/10">
-                  <CardContent className="p-5 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                      <AlertCircle className="w-5 h-5 text-amber-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-amber-700 dark:text-amber-400">Voting is Temporarily Paused</p>
-                      <p className="text-xs text-muted-foreground">Please check back later for updates</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {/* Enrollment Dialog */}
-            <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen}>
-              <DialogContent className="sm:max-w-md">
+            {/* ────────────────────────────────────── */}
+            {/* Join Tournament Rules Dialog           */}
+            {/* ────────────────────────────────────── */}
+            <Dialog open={rulesDialogOpen} onOpenChange={(open) => {
+              setRulesDialogOpen(open);
+              if (!open) {
+                useNavigationStore.getState().navigate('dashboard', {});
+              }
+            }}>
+              <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-primary" />
-                    Available Tournaments
+                  <DialogTitle className="flex items-center gap-2 text-lg">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                    Competition Rules & Guidelines
                   </DialogTitle>
                   <DialogDescription>
-                    Choose a tournament to enroll in. Only tournaments with upcoming stages are shown.
+                    Please read and accept the rules before joining the tournament.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="max-h-80 overflow-y-auto py-2">
-                  {enrollLoading ? (
-                    <div className="space-y-3">
-                      {Array.from({ length: 3 }).map((_, i) => (
-                        <Skeleton key={i} className="h-20 rounded-xl" />
-                      ))}
+
+                {/* Rules list */}
+                <div className="space-y-2.5 py-2">
+                  {competitionRules.map((rule, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-[10px] font-bold text-primary">{i + 1}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{rule}</p>
                     </div>
-                  ) : availableTournaments.length > 0 ? (
-                    <div className="space-y-3">
-                      {availableTournaments.map((t) => (
-                        <Card key={t.id} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => { setEnrollDialogOpen(false); navigate('tournament'); }}>
-                          <CardContent className="p-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                                <Trophy className="w-5 h-5 text-primary" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-sm">{t.name}</p>
-                                {t.description && (
-                                  <p className="text-xs text-muted-foreground truncate">{t.description}</p>
-                                )}
-                                {t.nextStage && (
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    <Badge variant="secondary" className="text-[10px] mr-1">Next Stage</Badge>
-                                    {t.nextStage.name} · Starts{' '}
-                                    {new Date(t.nextStage.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                  </p>
-                                )}
-                              </div>
-                              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <CalendarDays className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">No available tournaments at this time</p>
-                      <p className="text-xs text-muted-foreground mt-1">Check back later for new opportunities!</p>
-                    </div>
-                  )}
+                  ))}
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setEnrollDialogOpen(false)}>
-                    <X className="w-4 h-4 mr-1" />
-                    Close
+
+                <Separator />
+
+                {/* Registration Form */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <UserPlus className="w-4 h-4 text-primary" />
+                    Contestant Registration
+                  </h3>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="join-name">Display Name *</Label>
+                    <Input
+                      id="join-name"
+                      placeholder="Enter your display name"
+                      value={joinForm.name}
+                      onChange={(e) => setJoinForm((prev) => ({ ...prev, name: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="join-category">Category *</Label>
+                    <Select
+                      value={joinForm.category}
+                      onValueChange={(val) => setJoinForm((prev) => ({ ...prev, category: val }))}
+                    >
+                      <SelectTrigger id="join-category">
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.name}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                        {/* Fallback categories */}
+                        {categories.length === 0 && (
+                          <>
+                            <SelectItem value="Miss">Miss</SelectItem>
+                            <SelectItem value="Mr">Mr</SelectItem>
+                            <SelectItem value="Kids">Kids</SelectItem>
+                            <SelectItem value="Teens">Teens</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="join-bio">Bio (optional)</Label>
+                    <Textarea
+                      id="join-bio"
+                      placeholder="Tell us about yourself..."
+                      value={joinForm.bio}
+                      onChange={(e) => setJoinForm((prev) => ({ ...prev, bio: e.target.value }))}
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="join-image" className="flex items-center gap-1.5">
+                      Profile Image URL
+                      <ImageIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Label>
+                    <Input
+                      id="join-image"
+                      placeholder="https://example.com/your-photo.jpg"
+                      value={joinForm.imageUrl}
+                      onChange={(e) => setJoinForm((prev) => ({ ...prev, imageUrl: e.target.value }))}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Leave empty to use a default avatar
+                    </p>
+                  </div>
+                </div>
+
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setRulesDialogOpen(false);
+                      useNavigationStore.getState().navigate('dashboard', {});
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleJoinTournament}
+                    disabled={joinLoading || !joinForm.name.trim() || !joinForm.category}
+                    className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
+                  >
+                    {joinLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                        Joining...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-4 h-4 mr-2" />
+                        I Agree — Join Tournament
+                      </>
+                    )}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
 
-            {/* Stats Cards */}
+            {/* ────────────────────────────────────── */}
+            {/* Stats Cards                           */}
+            {/* ────────────────────────────────────── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {loading
                 ? Array.from({ length: 4 }).map((_, i) => (
@@ -543,7 +1073,9 @@ export default function DashboardOverview() {
                   ))}
             </div>
 
-            {/* Quick Actions */}
+            {/* ────────────────────────────────────── */}
+            {/* Quick Actions                         */}
+            {/* ────────────────────────────────────── */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -574,7 +1106,9 @@ export default function DashboardOverview() {
               </div>
             </motion.div>
 
-            {/* Notifications + Recent Activity */}
+            {/* ────────────────────────────────────── */}
+            {/* Notifications + Recent Activity       */}
+            {/* ────────────────────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Notifications */}
               <motion.div
