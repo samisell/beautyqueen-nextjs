@@ -217,3 +217,158 @@ Stage Summary:
 - Contestant cards have both "Vote" (free) and "Buy" (paid, no login) buttons
 - Full user flow: browse tournaments → join stage → get contestant profile → share link → receive votes from public
 - Friends/family can find contestants via leaderboard search and buy votes without logging in
+
+---
+Task ID: 3
+Agent: Backend Developer
+Task: Notification helper, admin task CRUD APIs, contestant task APIs, email notification integration
+
+Work Log:
+- Created `/src/lib/notify.ts` — Notification helper:
+  - `createNotification()` function that creates a Notification record in DB
+  - Params: userId, title, message, type ('info'|'warning'|'success'|'error'), emailContent (optional)
+  - Designed for fire-and-forget usage with `.catch(() => {})` pattern
+- Created `/src/app/api/admin/tasks/route.ts` — Admin Task CRUD:
+  - `GET`: List tasks for a stage (query param `stageId` optional) or all tasks; includes `_count.submissions` and stage/tournament info; admin auth required
+  - `POST`: Create new task for a stage; validates stage exists; supports title, description, instructions, dueDate, maxBonusVotes (default 10); admin auth required
+  - `PUT`: Update task by taskId; validates task exists; supports partial update of all fields including status; admin auth required
+  - `DELETE`: Delete task by taskId; cascade-deletes submissions; returns count of deleted submissions; admin auth required
+- Created `/src/app/api/admin/tasks/submissions/route.ts` — View & Rate Submissions:
+  - `GET`: List submissions for a task (query param `taskId` required); includes contestant name/imageUrl and ratedBy info; admin auth required
+  - `POST`: Rate submission and award bonus votes; admin auth required
+    - Validates submission exists and is pending
+    - Calculates bonus votes: uses provided value or defaults to `rating * maxBonusVotes / 10`
+    - Caps bonus votes: `maxBonusVotes - already awarded to contestant for this task`
+    - Transactional: updates submission status to 'rated', creates BonusVote record, increments contestant.totalVotes
+    - Creates notification for contestant user about rating and bonus votes (fire-and-forget)
+    - Returns detailed bonus votes info (requested, max allowed, awarded, total awarded for task)
+- Created `/src/app/api/contestant/tasks/route.ts` — Contestant Task APIs:
+  - `GET`: Get active tasks for current contestant's stage; each task includes contestant's own submission (if any) and `_count.submissions`; auth required
+  - `POST`: Submit work for a task; validates contestant exists, task exists, task belongs to contestant's stage, task is active, not already submitted; creates TaskSubmission with status='pending'; creates notification; auth required
+- Updated `/src/lib/email.ts` — Dashboard notification integration:
+  - Imported `createNotification` from `@/lib/notify`
+  - Updated 10 convenience functions to also create dashboard notifications (fire-and-forget):
+    - `sendWelcomeEmail` → 'success' notification with welcome message
+    - `sendRegistrationEmail` → 'success' notification with referral code info
+    - `sendVerificationOTP` → 'info' notification with OTP summary
+    - `sendLoginNotification` → 'warning' notification with IP/time details
+    - `sendPlatformInstructions` → 'info' notification with platform guide summary
+    - `sendTournamentJoinedEmail` → 'success' notification with tournament/stage name
+    - `sendPaymentSuccessfulEmail` → 'success' notification with vote/amount details
+    - `sendPaymentApprovedEmail` → 'success' notification with approval details
+    - `sendPaymentRejectedEmail` → 'error' notification with rejection reason
+    - `sendFraudWarningEmail` → 'error' notification with fraud details
+  - Each notification stores the email's HTML content in `emailContent` field for in-app viewing
+  - `sendPasswordResetOTP` left unchanged (not in the task's list)
+
+Stage Summary:
+- `createNotification()` helper provides consistent dashboard notification creation across the platform
+- Admin can fully manage stage tasks: create, read, update, delete with full validation
+- Admin can view submissions for tasks and rate them, awarding bonus votes based on beauty rating
+- Bonus votes are capped per task per contestant to prevent over-awarding
+- All rating operations are transactional (submission update + BonusVote + contestant totalVotes increment)
+- Contestants can view their tasks and submit work for active tasks in their stage
+- Every email convenience function now also creates a dashboard notification with full HTML content stored for in-app viewing
+- Users who miss emails can find all correspondence in their dashboard notifications
+
+---
+Task ID: 8
+Agent: Frontend Developer
+Task: Enhanced notification UI, notifications page, sidebar updates, remove free votes
+
+Work Log:
+- Enhanced DashboardOverview notifications (`src/pages/dashboard/DashboardOverview.tsx`):
+  - Added `emailContent` field to `NotificationData` interface
+  - Added `expandedNotifs` state (Set<string>) and `toggleNotifExpand` function
+  - Each notification with `emailContent` now shows a "View email" / "Hide email" toggle button (ChevronDown/ChevronUp icons)
+  - Expanded email content renders as HTML in a scrollable container (max-h-200px) with light background, rounded corners, proper padding
+  - Expand/collapse animated with framer-motion AnimatePresence
+  - Added "View All" button next to "Mark all read" in notification card header, navigating to `dashboard-notifications`
+- Created `src/pages/dashboard/DashboardNotifications.tsx`:
+  - Full-page notifications view with DashboardSidebar layout
+  - Fetches notifications with pagination from `/api/user/notifications`
+  - "Mark All as Read" button at top with unread count display
+  - Each notification shows: type icon, type badge, title, message, relative time, unread blue dot indicator
+  - Click on notification marks it as read (PUT API call)
+  - Expand button for email content (same pattern as DashboardOverview)
+  - "Load More" button at bottom for pagination
+  - Empty state with Inbox icon and "Back to Dashboard" button
+  - Loading skeletons and staggered animation for notification items
+- Registered DashboardNotifications:
+  - Added `'dashboard-notifications'` to `PageRoute` union in `src/types/index.ts`
+  - Added `'dashboard-notifications'` to `dashboardPages` array in `src/app/page.tsx`
+  - Added `'dashboard-notifications': <DashboardNotifications />` to `pageMap` in `src/app/page.tsx`
+- Updated DashboardSidebar (`src/components/layout/DashboardSidebar.tsx`):
+  - Added "Notifications" menu item with Bell icon to both user and admin menus
+  - Fetches unread count on mount from `/api/user/notifications?limit=1`
+  - Shows red badge with unread count (9+ cap) on the Bell icon
+  - Badge position: absolute top-right of icon
+- Removed Free Vote from VotingPage (`src/pages/VotingPage.tsx`):
+  - Removed "Cast Free Vote" button and `handleFreeVote` function
+  - Removed "Use Paid Vote" and "Use Referral Vote" buttons
+  - Removed `votingFree` state and `userVotedToday` variable
+  - Replaced with single "Purchase Votes to Support {name}" button that navigates to `public-vote` page
+  - Removed "Free Votes" stat card from vote stats grid (now shows Total, Purchased, Today)
+  - Updated supporting text to "Purchase votes to support your favorite contestant and help them climb the leaderboard!"
+  - Cleaned up unused imports (Users, Gift, Zap, CheckCircle2)
+- Updated ContestantCard (`src/components/contestants/ContestantCard.tsx`):
+  - Removed "Vote" (free vote) button with Heart icon
+  - Removed `isVoting`, `hasVoted`, `handleVote`, `useVotingStore`, `useAuthStore` imports
+  - Renamed `showVoteButton` prop to `showBuyButton` (defaults to true)
+  - Only "Buy" button remains (ShoppingBag icon, navigates to public-vote page)
+
+Stage Summary:
+- Dashboard notifications now support expandable email content viewing with smooth animations
+- New full-page notifications view with pagination, mark-as-read, and empty state
+- Sidebar shows unread notification count badge for quick awareness
+- Free voting completely removed from the platform - all voting is now purchase-based
+- Contestant cards only show "Buy" button, consistent with purchase-only voting model
+- All routes properly registered and navigable
+
+---
+Task ID: 6
+Agent: Main Orchestrator
+Task: Add Tasks tab to AdminDashboard, contestant tasks section to DashboardOverview, remove free vote button from ContestantCard
+
+Work Log:
+- Updated AdminDashboard (`src/pages/admin/AdminDashboard.tsx`):
+  - Added imports: `ClipboardCheck`, `Eye` from lucide-react
+  - Added 13 task-related state variables for tasks list, form, submissions, rating dialog
+  - Added `fetchTasks` callback fetching from `/api/admin/tasks`
+  - Added tab data fetching: `else if (activeTab === 'tasks') fetchTasks(controller.signal);`
+  - Added TabsTrigger for "tasks" with ClipboardCheck icon between "Bonus Votes" and "Settings"
+  - Created full "Tasks" TabsContent with:
+    - Task Creation Form card: stage dropdown (populated from tournaments/stages), title, description, instructions, due date, max bonus votes, submit button
+    - Tasks List: grid of task cards showing title, stage/tournament name, description, instructions preview, due date with overdue badge, status badge, max bonus votes badge, submission count badge
+    - View Submissions button and Delete button on each task card
+  - Created Task Submissions Dialog: lists all submissions for a task with contestant avatar, name, submission URL (clickable link), caption, status badge (pending/rated), rated submissions show beauty rating, bonus votes, feedback, pending submissions show "Rate" button
+  - Created Rating Dialog: shows contestant info, star rating (1-10) with interactive star buttons and range slider, auto-calculated bonus votes display, optional override input, feedback textarea, submit button
+  - Added `createTask`, `deleteTask`, `fetchTaskSubmissions`, `openRatingDialog`, `submitRating` handler functions
+- Updated DashboardOverview (`src/pages/dashboard/DashboardOverview.tsx`):
+  - Added imports: `ClipboardCheck`, `Clock`, `ChevronDown`, `ChevronUp`
+  - Added 7 task-related state variables for tasks list, submission dialog, form, loading, expanded task
+  - Added `fetchTasks` callback fetching from `/api/contestant/tasks`
+  - Tasks fetched after initial data load completes (with 500ms delay to ensure contestant data is available)
+  - Added "📋 Stage Tasks" section for active contestants:
+    - Gradient header (orange-500 to amber-500) with ClipboardCheck icon
+    - Task cards showing title, status badge, overdue badge, description, instructions (collapsible), due date, max bonus votes
+    - Submission status: "Submit" button (not submitted), "Submitted — Awaiting Review" badge (pending), rated result with green check (rated)
+    - Expandable instructions with ChevronDown/ChevronUp toggle
+    - Rated submissions show feedback in green card
+  - Created Submit Task Dialog: shows task instructions and description, submission URL input (required), caption textarea, submit button
+  - Added `handleSubmitTask` and `openSubmitDialog` handler functions
+- Updated ContestantCard (`src/components/contestants/ContestantCard.tsx`):
+  - Confirmed free vote button removal (already done by previous agent)
+  - Cleaned up unused imports (`useState`, `toast`, `useVotingStore`, `useAuthStore`)
+  - Only "Buy" button remains with ShoppingBag icon
+
+Stage Summary:
+- Admin can create tasks assigned to specific stages with bonus vote rewards
+- Admin can view all submissions for any task in a dialog
+- Admin can rate pending submissions with beauty rating (1-10), auto-calculated bonus votes, feedback text
+- Admin can optionally override auto-calculated bonus votes
+- Contestants see their tasks on the dashboard with collapsible instructions
+- Contestants can submit task work via URL and optional caption
+- Contestants see real-time status updates (pending/rated) with bonus vote results
+- Free vote button removed from contestant cards — only "Buy Votes" button remains
+- All API endpoints (`/api/admin/tasks`, `/api/admin/tasks/submissions`, `/api/contestant/tasks`) already exist from previous backend task

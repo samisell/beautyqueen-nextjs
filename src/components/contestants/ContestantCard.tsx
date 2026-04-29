@@ -1,79 +1,28 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ArrowUpRight, TrendingUp, ShoppingBag } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Heart, ShoppingBag } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Contestant } from '@/types';
 import { useNavigationStore } from '@/stores/navigation-store';
-import { useVotingStore } from '@/stores/voting-store';
-import { useAuthStore } from '@/stores/auth-store';
-import { toast } from 'sonner';
 
 interface ContestantCardProps {
   contestant: Contestant;
   rank?: number;
-  showVoteButton?: boolean;
+  showBuyButton?: boolean;
   compact?: boolean;
 }
 
 export default function ContestantCard({
   contestant,
   rank,
-  showVoteButton = true,
+  showBuyButton = true,
   compact = false,
 }: ContestantCardProps) {
-  const [isVoting, setIsVoting] = useState(false);
   const { navigate } = useNavigationStore();
-  const { incrementVote, markVotedToday, hasVotedToday } = useVotingStore();
-  const { isAuthenticated } = useAuthStore();
-
-  const hasVoted = hasVotedToday[contestant.id];
-
-  const handleVote = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isVoting) return;
-
-    if (!isAuthenticated) {
-      toast.error('Please login to vote');
-      navigate('login');
-      return;
-    }
-
-    if (hasVoted) {
-      toast.info('You have already voted for this contestant today');
-      return;
-    }
-
-    setIsVoting(true);
-    try {
-      const res = await fetch('/api/vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contestantId: contestant.id,
-          voteType: 'free',
-        }),
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        incrementVote(contestant.id);
-        markVotedToday(contestant.id);
-        toast.success('Vote cast successfully! 🎉');
-      } else {
-        toast.error(data.message || 'Failed to cast vote');
-      }
-    } catch {
-      toast.error('Something went wrong');
-    } finally {
-      setIsVoting(false);
-    }
-  };
 
   const handleClick = () => {
     navigate('vote', { id: contestant.id });
@@ -165,40 +114,21 @@ export default function ContestantCard({
               </div>
             </div>
 
-            {showVoteButton && (
-              <div className="flex items-center gap-2">
-                <motion.div whileTap={{ scale: 0.9 }}>
-                  <Button
-                    size="sm"
-                    className={`rounded-full shadow-lg ${
-                      hasVoted
-                        ? 'bg-green-500 hover:bg-green-500'
-                        : 'bg-primary hover:bg-primary/90'
-                    }`}
-                    onClick={handleVote}
-                    disabled={isVoting || hasVoted}
-                  >
-                    <Heart
-                      className={`w-3.5 h-3.5 mr-1 ${hasVoted ? 'fill-white' : ''}`}
-                    />
-                    {hasVoted ? 'Voted' : 'Vote'}
-                  </Button>
-                </motion.div>
-                <motion.div whileTap={{ scale: 0.9 }}>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="rounded-full shadow-lg bg-white/90 backdrop-blur-sm text-black hover:bg-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate('public-vote', { id: contestant.id });
-                    }}
-                  >
-                    <ShoppingBag className="w-3.5 h-3.5 mr-1" />
-                    Buy
-                  </Button>
-                </motion.div>
-              </div>
+            {showBuyButton && (
+              <motion.div whileTap={{ scale: 0.9 }}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="rounded-full shadow-lg bg-white/90 backdrop-blur-sm text-black hover:bg-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('public-vote', { id: contestant.id });
+                  }}
+                >
+                  <ShoppingBag className="w-3.5 h-3.5 mr-1" />
+                  Buy
+                </Button>
+              </motion.div>
             )}
           </div>
         </div>

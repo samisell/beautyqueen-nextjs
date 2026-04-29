@@ -7,10 +7,7 @@ import {
   Heart,
   Share2,
   Trophy,
-  Users,
-  Gift,
   Star,
-  Zap,
   Loader2,
   Copy,
   Check,
@@ -18,7 +15,6 @@ import {
   Crown,
   Clock,
   ShoppingBag,
-  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,7 +72,7 @@ export default function VotingPage() {
   const { pageParams, navigate } = useNavigationStore();
   const contestantId = pageParams.id;
   const { isAuthenticated, token } = useAuthStore();
-  const { incrementVote, markVotedToday, hasVotedToday } = useVotingStore();
+  const { incrementVote } = useVotingStore();
 
   const [contestant, setContestant] = useState<Contestant | null>(null);
   const [voteStats, setVoteStats] = useState<VoteStatsData | null>(null);
@@ -84,7 +80,6 @@ export default function VotingPage() {
   const [userStats, setUserStats] = useState<UserStatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [votingFree, setVotingFree] = useState(false);
   const [votingPaid, setVotingPaid] = useState(false);
   const [votingReferral, setVotingReferral] = useState(false);
   const [purchasingPkgId, setPurchasingPkgId] = useState<string | null>(null);
@@ -181,35 +176,6 @@ export default function VotingPage() {
   const triggerVoteAnimation = () => {
     setVoteAnimation(true);
     setTimeout(() => setVoteAnimation(false), 1000);
-  };
-
-  const handleFreeVote = async () => {
-    if (votingFree) return;
-    const localVoted = hasVotedToday[contestantId!];
-
-    setVotingFree(true);
-    try {
-      const res = await fetch('/api/vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contestantId, voteType: 'free' }),
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        incrementVote(contestantId!);
-        markVotedToday(contestantId!);
-        triggerVoteAnimation();
-        toast.success('Free vote cast! 🎉');
-        fetchVoteStats();
-      } else {
-        toast.error(data.message || 'Failed to cast vote');
-      }
-    } catch {
-      toast.error('Something went wrong');
-    } finally {
-      setVotingFree(false);
-    }
   };
 
   const handlePaidVote = async () => {
@@ -314,9 +280,7 @@ export default function VotingPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const userVotedToday = voteStats?.userVoted ?? hasVotedToday[contestantId!] ?? false;
   const availablePaidVotes = userStats?.availableVotes ?? 0;
-  const referralBonusVotes = userStats?.referralBonusVotes ?? 0;
 
   // Loading state
   if (loading) {
@@ -486,7 +450,7 @@ export default function VotingPage() {
 
             {/* Vote Stats Grid */}
             {voteStats && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <Card className="border-0 shadow-sm">
                   <CardContent className="p-4 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-1">
@@ -499,25 +463,16 @@ export default function VotingPage() {
                 <Card className="border-0 shadow-sm">
                   <CardContent className="p-4 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <Zap className="w-4 h-4 text-emerald-500" />
-                      <span className="text-xl font-bold">{voteStats.freeVotes.toLocaleString()}</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">Free Votes</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-0 shadow-sm">
-                  <CardContent className="p-4 text-center">
-                    <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <Star className="w-4 h-4 text-blue-500" />
+                      <Star className="w-4 h-4 text-amber-500" />
                       <span className="text-xl font-bold">{voteStats.paidVotes.toLocaleString()}</span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">Paid Votes</p>
+                    <p className="text-[11px] text-muted-foreground">Purchased</p>
                   </CardContent>
                 </Card>
                 <Card className="border-0 shadow-sm">
                   <CardContent className="p-4 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <TrendingUp className="w-4 h-4 text-amber-500" />
+                      <TrendingUp className="w-4 h-4 text-emerald-500" />
                       <span className="text-xl font-bold">{voteStats.todayVotes}</span>
                     </div>
                     <p className="text-[11px] text-muted-foreground">Today</p>
@@ -530,91 +485,21 @@ export default function VotingPage() {
 
             {/* Vote Actions */}
             <div className="space-y-3">
-              {/* Free Vote Button */}
+              {/* Buy Votes Button - navigates to public-vote */}
               <motion.div whileTap={{ scale: 0.97 }}>
                 <Button
                   size="lg"
-                  className={`w-full h-14 text-lg font-bold rounded-2xl shadow-xl transition-all ${
-                    userVotedToday
-                      ? 'bg-green-500 hover:bg-green-500 shadow-green-500/25'
-                      : 'bg-gradient-to-r from-primary via-orange-500 to-amber-500 hover:opacity-90 shadow-primary/30'
-                  }`}
-                  onClick={handleFreeVote}
-                  disabled={votingFree || userVotedToday}
+                  className="w-full h-14 text-lg font-bold rounded-2xl shadow-xl bg-gradient-to-r from-primary via-orange-500 to-amber-500 hover:opacity-90 shadow-primary/30 transition-all"
+                  onClick={() => navigate('public-vote', { id: contestantId })}
                 >
-                  {votingFree ? (
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  ) : null}
-                  <Heart className={`w-5 h-5 mr-2 ${userVotedToday ? 'fill-white' : ''}`} />
-                  {userVotedToday ? 'Voted Today ✓' : 'Cast Free Vote'}
+                  <ShoppingBag className="w-5 h-5 mr-2" />
+                  Purchase Votes to Support {contestant.name}
                 </Button>
               </motion.div>
 
-              {/* Paid Vote Button */}
-              {isAuthenticated && (
-                <motion.div whileTap={{ scale: 0.97 }}>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className={`w-full h-12 rounded-2xl transition-all ${
-                      availablePaidVotes > 0
-                        ? 'border-2 border-blue-500/30 text-blue-600 hover:bg-blue-500/5'
-                        : 'opacity-60'
-                    }`}
-                    onClick={handlePaidVote}
-                    disabled={votingPaid || availablePaidVotes <= 0}
-                  >
-                    {votingPaid ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : null}
-                    <Star className="w-4 h-4 mr-2" />
-                    Use Paid Vote{' '}
-                    <Badge
-                      variant="secondary"
-                      className="ml-2 text-xs"
-                    >
-                      {availablePaidVotes} available
-                    </Badge>
-                  </Button>
-                </motion.div>
-              )}
-
-              {/* Referral Vote Button */}
-              {isAuthenticated && referralBonusVotes > 0 && (
-                <motion.div whileTap={{ scale: 0.97 }}>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="w-full h-12 rounded-2xl border-2 border-purple-500/30 text-purple-600 hover:bg-purple-500/5 transition-all"
-                    onClick={handleReferralVote}
-                    disabled={votingReferral}
-                  >
-                    {votingReferral ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : null}
-                    <Gift className="w-4 h-4 mr-2" />
-                    Use Referral Vote{' '}
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {referralBonusVotes} available
-                    </Badge>
-                  </Button>
-                </motion.div>
-              )}
-
-              {/* Not authenticated message */}
-              {!isAuthenticated && (
-                <div className="text-center py-3 px-4 bg-muted rounded-xl">
-                  <p className="text-sm text-muted-foreground">
-                    <button
-                      onClick={() => navigate('login')}
-                      className="text-primary font-medium hover:underline"
-                    >
-                      Sign in
-                    </button>{' '}
-                    to unlock paid votes, referral votes, and more features
-                  </p>
-                </div>
-              )}
+              <p className="text-xs text-center text-muted-foreground">
+                Purchase votes to support your favorite contestant and help them climb the leaderboard!
+              </p>
             </div>
 
             {/* Vote Packages */}

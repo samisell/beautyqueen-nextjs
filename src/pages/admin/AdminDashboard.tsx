@@ -44,6 +44,8 @@ import {
   RotateCcw,
   Swords,
   PlusCircle,
+  ClipboardCheck,
+  Eye,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -488,6 +490,34 @@ export default function AdminDashboard() {
   const [bonusHistoryLoading, setBonusHistoryLoading] = useState(false);
   const [votingEnabled, setVotingEnabled] = useState(true);
 
+  // Task states
+  const [tasks, setTasks] = useState<Array<{
+    id: string; stageId: string; title: string; description: string | null;
+    instructions: string | null; dueDate: string | null; status: string;
+    maxBonusVotes: number; createdAt: string; updatedAt: string;
+    stage: { id: string; name: string; tournament: { id: string; name: string } };
+    _count: { submissions: number };
+  }>>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [taskForm, setTaskForm] = useState({
+    stageId: '', title: '', description: '', instructions: '', dueDate: '', maxBonusVotes: '10'
+  });
+  const [taskSubmitting, setTaskSubmitting] = useState(false);
+  const [taskSubmissions, setTaskSubmissions] = useState<Array<{
+    id: string; taskId: string; contestantId: string; submissionUrl: string;
+    caption: string | null; status: string; beautyRating: number | null;
+    feedback: string | null; bonusVotesAwarded: number; createdAt: string;
+    contestant: { id: string; name: string; imageUrl: string };
+  }>>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [submissionsDialogOpen, setSubmissionsDialogOpen] = useState(false);
+  const [selectedTaskTitle, setSelectedTaskTitle] = useState('');
+  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
+  const [ratingForm, setRatingForm] = useState({
+    submissionId: '', beautyRating: '5', feedback: '', bonusVotes: ''
+  });
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+
   // Expanded contestants rows
   const [expandedContestants, setExpandedContestants] = useState<Set<string>>(new Set());
 
@@ -661,6 +691,20 @@ export default function AdminDashboard() {
     }
   }, [headers]);
 
+  const fetchTasks = useCallback(async (signal?: AbortSignal) => {
+    setTasksLoading(true);
+    try {
+      const res = await fetch('/api/admin/tasks', { headers: headers(), signal });
+      const data = await res.json();
+      if (data.success) setTasks(data.data || []);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      toast.error('Failed to load tasks');
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [headers]);
+
   // ──────────────────────────────────────────────
   // Data Fetching by Tab
   // ──────────────────────────────────────────────
@@ -675,8 +719,9 @@ export default function AdminDashboard() {
     else if (activeTab === 'packages') fetchPackages(controller.signal);
     else if (activeTab === 'payments') fetchPayments(paymentsPage, paymentsStatusFilter, paymentsMethodFilter, controller.signal);
     else if (activeTab === 'bonus') { fetchBonusContestants(); fetchBonusHistory(); }
+    else if (activeTab === 'tasks') fetchTasks(controller.signal);
     return () => controller.abort();
-  }, [activeTab, fetchStats, fetchSettings, fetchContestants, fetchUsers, fetchTournaments, fetchPackages, fetchPayments, fetchBonusContestants, fetchBonusHistory]);
+  }, [activeTab, fetchStats, fetchSettings, fetchContestants, fetchUsers, fetchTournaments, fetchPackages, fetchPayments, fetchBonusContestants, fetchBonusHistory, fetchTasks]);
 
   // Search debounced fetches
   useEffect(() => {
@@ -1240,6 +1285,98 @@ export default function AdminDashboard() {
   }
 
   // ──────────────────────────────────────────────
+  // Task CRUD
+  // ──────────────────────────────────────────────
+
+  async function createTask() {
+    if (!taskForm.stageId) { toast.error('Please select a stage'); return; }
+    if (!taskForm.title.trim()) { toast.error('Title is required'); return; }
+    setTaskSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/tasks', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({
+          stageId: taskForm.stageId,
+          title: taskForm.title.trim(),
+          description: taskForm.description || undefined,
+          instructions: taskForm.instructions || undefined,
+          dueDate: taskForm.dueDate || undefined,
+          maxBonusVotes: Number(taskForm.maxBonusVotes) || 10,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Task created successfully');
+        setTaskForm({ stageId: '', title: '', description: '', instructions: '', dueDate: '', maxBonusVotes: '10' });
+        fetchTasks();
+      } else {
+        toast.error(data.message || data.error || 'Failed to create task');
+      }
+    } catch { toast.error('Network error'); }
+    finally { setTaskSubmitting(false); }
+  }
+
+  async function deleteTask(id: string) {
+    try {
+      const res = await fetch(`/api/admin/tasks?id=${id}`, { method: 'DELETE', headers: headers() });
+      const data = await res.json();
+      if (data.success) { toast.success('Task deleted'); fetchTasks(); }
+      else toast.error(data.message || 'Failed to delete task');
+    } catch { toast.error('Network error'); }
+  }
+
+  async function fetchTaskSubmissions(taskId: string, taskTitle: string) {
+    setSelectedTaskTitle(taskTitle);
+    setSubmissionsLoading(true);
+    setSubmissionsDialogOpen(true);
+    try {
+      const res = await fetch(`/api/admin/tasks?taskId=${taskId}`, { headers: headers() });
+      const data = await res.json();
+      if (data.success) setTaskSubmissions(data.data?.submissions || []);
+    } catch { toast.error('Failed to load submissions'); }
+    finally { setSubmissionsLoading(false); }
+  }
+
+  function openRatingDialog(sub: typeof taskSubmissions[0], maxBonus: number) {
+    const autoVotes = Math.round((Number(ratingForm.beautyRating) || 5) * maxBonus / 10);
+    setRatingForm({
+      submissionId: sub.id,
+      beautyRating: sub.beautyRating?.toString() || '5',
+      feedback: sub.feedback || '',
+      bonusVotes: sub.bonusVotesAwarded?.toString() || autoVotes.toString(),
+    });
+    setRatingDialogOpen(true);
+  }
+
+  async function submitRating(maxBonus: number) {
+    if (!ratingForm.submissionId) return;
+    setRatingSubmitting(true);
+    try {
+      const bonusVal = ratingForm.bonusVotes ? Number(ratingForm.bonusVotes) : Math.round(Number(ratingForm.beautyRating) * maxBonus / 10);
+      const res = await fetch('/api/admin/tasks/submissions', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({
+          submissionId: ratingForm.submissionId,
+          beautyRating: Number(ratingForm.beautyRating) || 5,
+          feedback: ratingForm.feedback || undefined,
+          bonusVotesAwarded: bonusVal,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Submission rated successfully');
+        setRatingDialogOpen(false);
+        fetchTasks();
+      } else {
+        toast.error(data.message || data.error || 'Failed to rate submission');
+      }
+    } catch { toast.error('Network error'); }
+    finally { setRatingSubmitting(false); }
+  }
+
+  // ──────────────────────────────────────────────
   // Mock weekly chart data from real stats
   // ──────────────────────────────────────────────
 
@@ -1406,6 +1543,10 @@ export default function AdminDashboard() {
                   <TabsTrigger value="bonus" className="gap-1.5">
                     <PlusCircle className="w-4 h-4" />
                     <span className="hidden sm:inline">Bonus Votes</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="tasks" className="gap-1.5">
+                    <ClipboardCheck className="w-4 h-4" />
+                    <span className="hidden sm:inline">Tasks</span>
                   </TabsTrigger>
                   <TabsTrigger value="settings" className="gap-1.5">
                     <Settings2 className="w-4 h-4" />
@@ -2678,6 +2819,186 @@ export default function AdminDashboard() {
                     )}
                   </motion.div>
                 </TabsContent>
+
+                {/* ════════════════════════════════════════ */}
+                {/* TAB: TASKS                               */}
+                {/* ════════════════════════════════════════ */}
+                <TabsContent value="tasks">
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                    <div>
+                      <h2 className="text-lg font-semibold flex items-center gap-2">
+                        <ClipboardCheck className="w-5 h-5 text-primary" />
+                        Task Management
+                      </h2>
+                      <p className="text-sm text-muted-foreground">Create and manage tasks for contestants with bonus vote rewards</p>
+                    </div>
+
+                    {/* Create Task Form */}
+                    <Card className="rounded-xl">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-base">Create New Task</CardTitle>
+                        <CardDescription>Assign a task to a stage with bonus vote rewards</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Stage *</Label>
+                            <Select value={taskForm.stageId} onValueChange={(v) => setTaskForm((f) => ({ ...f, stageId: v }))}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a stage" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {tournaments.map((t) =>
+                                  t.stages?.map((s) => (
+                                    <SelectItem key={s.id} value={s.id}>
+                                      {t.name} &middot; {s.name}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Due Date</Label>
+                            <Input
+                              type="date"
+                              value={taskForm.dueDate}
+                              onChange={(e) => setTaskForm((f) => ({ ...f, dueDate: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Title *</Label>
+                          <Input
+                            placeholder="e.g. Best Photo Challenge"
+                            value={taskForm.title}
+                            onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Description</Label>
+                          <Textarea
+                            placeholder="Brief description of the task..."
+                            value={taskForm.description}
+                            onChange={(e) => setTaskForm((f) => ({ ...f, description: e.target.value }))}
+                            rows={2}
+                            className="resize-none"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Instructions for Contestants</Label>
+                          <Textarea
+                            placeholder="Detailed instructions for contestants on how to complete the task..."
+                            value={taskForm.instructions}
+                            onChange={(e) => setTaskForm((f) => ({ ...f, instructions: e.target.value }))}
+                            rows={3}
+                            className="resize-none"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Max Bonus Votes</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={taskForm.maxBonusVotes}
+                              onChange={(e) => setTaskForm((f) => ({ ...f, maxBonusVotes: e.target.value }))}
+                            />
+                            <p className="text-[11px] text-muted-foreground">Maximum bonus votes a contestant can earn</p>
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <Button onClick={createTask} disabled={taskSubmitting} className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white">
+                            {taskSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                            Create Task
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Tasks List */}
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-sm">All Tasks</h3>
+                      {tasksLoading ? (
+                        <div className="space-y-3">
+                          {Array.from({ length: 3 }).map((_, i) => (
+                            <Skeleton key={i} className="h-32 rounded-xl" />
+                          ))}
+                        </div>
+                      ) : tasks.length === 0 ? (
+                        <Card className="rounded-xl">
+                          <CardContent className="py-12 text-center">
+                            <ClipboardCheck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+                            <p className="text-sm text-muted-foreground">No tasks created yet</p>
+                            <p className="text-xs text-muted-foreground mt-1">Create your first task using the form above</p>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {tasks.map((task) => {
+                            const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status === 'active';
+                            return (
+                              <Card key={task.id} className="rounded-xl overflow-hidden">
+                                <CardContent className="p-4 space-y-3">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="font-semibold text-sm truncate">{task.title}</h4>
+                                      <p className="text-xs text-muted-foreground mt-0.5">{task.stage?.tournament?.name} &middot; {task.stage?.name}</p>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                      {task.status === 'active' ? (
+                                        <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20">Active</Badge>
+                                      ) : task.status === 'closed' ? (
+                                        <Badge className="bg-slate-500/15 text-slate-700 dark:text-slate-400 border-slate-500/20">Closed</Badge>
+                                      ) : (
+                                        <Badge className="bg-gray-500/15 text-gray-700 dark:text-gray-400 border-gray-500/20">{task.status}</Badge>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {task.description && (
+                                    <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
+                                  )}
+                                  {task.instructions && (
+                                    <div className="p-2 bg-muted/50 rounded-lg text-[11px] text-muted-foreground whitespace-pre-wrap line-clamp-2">{task.instructions}</div>
+                                  )}
+
+                                  <div className="flex items-center gap-3 flex-wrap">
+                                    {task.dueDate && (
+                                      <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                        <Calendar className="w-3 h-3" />
+                                        {formatDate(task.dueDate)}
+                                        {isOverdue && <Badge className="bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20 text-[10px] ml-1">Overdue</Badge>}
+                                      </span>
+                                    )}
+                                    <Badge variant="secondary" className="text-[10px]">
+                                      <Star className="w-3 h-3 mr-1 text-amber-500" />
+                                      Max {task.maxBonusVotes} bonus
+                                    </Badge>
+                                    <Badge variant="outline" className="text-[10px]">
+                                      {task._count?.submissions || 0} submissions
+                                    </Badge>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 pt-1">
+                                    <Button size="sm" variant="outline" className="text-xs rounded-lg" onClick={() => fetchTaskSubmissions(task.id, task.title)}>
+                                      <Eye className="w-3 h-3 mr-1" />
+                                      View Submissions
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="text-xs rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20" onClick={() => deleteTask(task.id)}>
+                                      <Trash2 className="w-3 h-3 mr-1" />
+                                      Delete
+                                    </Button>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                </TabsContent>
               </Tabs>
             </div>
           </div>
@@ -2687,6 +3008,184 @@ export default function AdminDashboard() {
       {/* ════════════════════════════════════════ */}
       {/* DIALOGS                                   */}
       {/* ════════════════════════════════════════ */}
+
+      {/* Task Submissions Dialog */}
+      <Dialog open={submissionsDialogOpen} onOpenChange={(open) => { setSubmissionsDialogOpen(open); if (!open) setTaskSubmissions([]); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-primary" />
+              Submissions — {selectedTaskTitle}
+            </DialogTitle>
+            <DialogDescription>Review and rate contestant submissions</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {submissionsLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+              </div>
+            ) : taskSubmissions.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No submissions yet</p>
+              </div>
+            ) : (
+              <ScrollArea className="max-h-96">
+                <div className="space-y-3 pr-4">
+                  {taskSubmissions.map((sub) => (
+                    <Card key={sub.id} className="rounded-lg border">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 overflow-hidden flex-shrink-0">
+                            {sub.contestant?.imageUrl ? (
+                              <img src={sub.contestant.imageUrl} alt={sub.contestant.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs font-bold text-primary">{sub.contestant?.name?.charAt(0) || '?'}</div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-sm truncate">{sub.contestant?.name || 'Unknown'}</h4>
+                              {sub.status === 'pending' ? (
+                                <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 text-[10px] border-0">Pending</Badge>
+                              ) : (
+                                <Badge className="bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400 text-[10px] border-0">Rated</Badge>
+                              )}
+                            </div>
+                            {sub.submissionUrl && (
+                              <a href={sub.submissionUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate block">
+                                {sub.submissionUrl}
+                              </a>
+                            )}
+                            {sub.caption && (
+                              <p className="text-xs text-muted-foreground">{sub.caption}</p>
+                            )}
+                            {sub.status === 'rated' && (
+                              <div className="flex items-center gap-3 text-xs">
+                                <span className="flex items-center gap-1">
+                                  <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                  {sub.beautyRating}/10
+                                </span>
+                                <span className="text-green-600 dark:text-green-400 font-medium">+{sub.bonusVotesAwarded} votes</span>
+                                {sub.feedback && <span className="text-muted-foreground truncate">"{sub.feedback}"</span>}
+                              </div>
+                            )}
+                            {sub.status === 'pending' && (
+                              <Button size="sm" variant="outline" className="text-xs rounded-lg mt-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white border-0 hover:from-orange-600 hover:to-amber-600" onClick={() => {
+                                const task = tasks.find(t => t.title === selectedTaskTitle);
+                                openRatingDialog(sub, task?.maxBonusVotes || 10);
+                              }}>
+                                <Star className="w-3 h-3 mr-1" />
+                                Rate
+                              </Button>
+                            )}
+                            <p className="text-[10px] text-muted-foreground">{timeAgo(sub.createdAt)}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rating Dialog */}
+      <Dialog open={ratingDialogOpen} onOpenChange={setRatingDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Star className="w-5 h-5 text-amber-500" />
+              Rate Submission
+            </DialogTitle>
+            <DialogDescription>Rate this contestant's submission and award bonus votes</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {(() => {
+              const sub = taskSubmissions.find(s => s.id === ratingForm.submissionId);
+              return sub ? (
+                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 overflow-hidden flex-shrink-0">
+                    {sub.contestant?.imageUrl ? (
+                      <img src={sub.contestant.imageUrl} alt={sub.contestant.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs font-bold text-primary">{sub.contestant?.name?.charAt(0)}</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm">{sub.contestant?.name}</p>
+                    {sub.submissionUrl && (
+                      <a href={sub.submissionUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary hover:underline truncate block">View Submission</a>
+                    )}
+                  </div>
+                </div>
+              ) : null;
+            })()}
+            <div className="space-y-2">
+              <Label>Beauty Rating: {ratingForm.beautyRating}/10</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={ratingForm.beautyRating}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const task = tasks.find(t => t.submissions?.some);
+                    setRatingForm((f) => ({ ...f, beautyRating: val, bonusVotes: Math.round(Number(val) * (tasks.find(t => t.id)?.maxBonusVotes || 10) / 10).toString() }));
+                  }}
+                  className="flex-1 accent-primary"
+                />
+                <span className="text-sm font-bold text-primary w-6 text-center">{ratingForm.beautyRating}</span>
+              </div>
+              <div className="flex gap-1">
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setRatingForm((f) => ({ ...f, beautyRating: n.toString(), bonusVotes: Math.round(n * (tasks.find(t => t.id)?.maxBonusVotes || 10) / 10).toString() }))}
+                    className={`w-6 h-6 rounded text-xs transition-colors ${Number(ratingForm.beautyRating) >= n ? 'text-amber-500' : 'text-muted-foreground/30 hover:text-amber-300'}`}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Feedback</Label>
+              <Textarea
+                placeholder="Give feedback to the contestant..."
+                value={ratingForm.feedback}
+                onChange={(e) => setRatingForm((f) => ({ ...f, feedback: e.target.value }))}
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Bonus Votes to Award</Label>
+              <Input
+                type="number"
+                min="0"
+                value={ratingForm.bonusVotes}
+                onChange={(e) => setRatingForm((f) => ({ ...f, bonusVotes: e.target.value }))}
+              />
+              <p className="text-[11px] text-muted-foreground">Auto-calculated from rating. Override as needed.</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setRatingDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => {
+              const task = tasks.find(t => t.id);
+              submitRating(task?.maxBonusVotes || 10);
+            }} disabled={ratingSubmitting} className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white">
+              {ratingSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Star className="w-4 h-4 mr-2" />}
+              Submit Rating
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add/Edit Contestant Dialog */}
       <Dialog open={contestantDialogOpen} onOpenChange={setContestantDialogOpen}>

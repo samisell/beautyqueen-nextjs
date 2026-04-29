@@ -20,6 +20,7 @@ export type PageRoute =
   | 'dashboard-purchases'
   | 'dashboard-referrals'
   | 'dashboard-settings'
+  | 'dashboard-notifications'
   | 'admin'
   | 'public-vote';
 

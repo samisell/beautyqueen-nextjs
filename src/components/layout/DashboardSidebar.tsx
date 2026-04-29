@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -13,6 +14,7 @@ import {
   BarChart3,
   UserPlus,
   Crown,
+  Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
@@ -38,6 +40,12 @@ const userMenuItems = [
     label: 'Purchases',
     page: 'dashboard-purchases',
     icon: ShoppingCart,
+  },
+  {
+    label: 'Notifications',
+    page: 'dashboard-notifications',
+    icon: Bell,
+    showBadge: true,
   },
   {
     label: 'Referrals',
@@ -74,6 +82,12 @@ const adminMenuItems = [
     icon: UserPlus,
   },
   {
+    label: 'Notifications',
+    page: 'dashboard-notifications',
+    icon: Bell,
+    showBadge: true,
+  },
+  {
     label: 'My Profile',
     page: 'dashboard-profile',
     icon: User,
@@ -87,10 +101,33 @@ const adminMenuItems = [
 
 export default function DashboardSidebar() {
   const { currentPage, navigate } = useNavigationStore();
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const isAdmin = user?.role === 'admin';
   const menuItems = isAdmin ? adminMenuItems : userMenuItems;
+
+  // Fetch unread count on mount
+  useEffect(() => {
+    async function fetchUnread() {
+      if (!token) return;
+      try {
+        const res = await fetch('/api/user/notifications?limit=1', {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        if (data.success) {
+          setUnreadCount(data.unreadCount ?? 0);
+        }
+      } catch {
+        // Ignore
+      }
+    }
+    fetchUnread();
+  }, [token]);
 
   return (
     <aside className="w-full lg:w-64 shrink-0">
@@ -110,7 +147,14 @@ export default function DashboardSidebar() {
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               )}
             >
-              <Icon className="w-4 h-4" />
+              <div className="relative">
+                <Icon className="w-4 h-4" />
+                {item.showBadge && unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </div>
               <div className="flex flex-col items-start">
                 <span>{item.label}</span>
                 {item.sublabel && (

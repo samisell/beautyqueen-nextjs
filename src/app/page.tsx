@@ -26,6 +26,7 @@ import DashboardVotes from '@/pages/dashboard/DashboardVotes';
 import DashboardPurchases from '@/pages/dashboard/DashboardPurchases';
 import DashboardReferrals from '@/pages/dashboard/DashboardReferrals';
 import DashboardSettings from '@/pages/dashboard/DashboardSettings';
+import DashboardNotifications from '@/pages/dashboard/DashboardNotifications';
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import PublicVotingPage from '@/pages/PublicVotingPage';
 
@@ -38,6 +39,7 @@ const dashboardPages: PageRoute[] = [
   'dashboard-purchases',
   'dashboard-referrals',
   'dashboard-settings',
+  'dashboard-notifications',
   'admin',
   'public-vote',
 ];
@@ -64,6 +66,7 @@ function PageRenderer() {
     'dashboard-purchases': <DashboardPurchases />,
     'dashboard-referrals': <DashboardReferrals />,
     'dashboard-settings': <DashboardSettings />,
+    'dashboard-notifications': <DashboardNotifications />,
     admin: <AdminDashboard />,
     'public-vote': <PublicVotingPage />,
   };

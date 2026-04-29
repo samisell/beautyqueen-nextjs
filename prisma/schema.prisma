@@ -32,6 +32,7 @@ model User {
   contestantProfile    Contestant?     @relation("ContestantUser")
   bonusVotes     BonusVote[]  @relation("BonusVoteAdmin")
   emailVerification EmailVerification?
+  ratedSubmissions TaskSubmission[]  @relation("TaskRater")
 
   @@index([email])
   @@index([referralCode])
@@ -62,6 +63,7 @@ model Contestant {
   user             User?             @relation("ContestantUser", fields: [userId], references: [id])
   bonusVotes       BonusVote[]
   publicPayments   Payment[]          @relation("PaymentContestant")
+  taskSubmissions  TaskSubmission[]
 
   @@index([category])
   @@index([status])
@@ -204,6 +206,7 @@ model TournamentStage {
 
   tournament  Tournament   @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   contestants Contestant[]
+  tasks       StageTask[]
 
   @@index([status])
   @@index([order])
@@ -299,17 +302,63 @@ model VoteLink {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String
-  message   String
-  type      String   @default("info")
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  userId       String
+  title        String
+  message      String
+  type         String   @default("info")
+  isRead       Boolean  @default(false)
+  emailContent String?
+  createdAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isRead])
+  @@index([createdAt])
+}
+
+model StageTask {
+  id          String   @id @default(cuid())
+  stageId     String
+  title       String
+  description String?
+  instructions String?
+  dueDate     DateTime?
+  status      String   @default("active")
+  maxBonusVotes Int     @default(10)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stage        TournamentStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  submissions  TaskSubmission[]
+
+  @@index([stageId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model TaskSubmission {
+  id           String   @id @default(cuid())
+  taskId       String
+  contestantId String
+  submissionUrl String
+  caption      String?
+  status       String   @default("pending")
+  beautyRating Int?
+  feedback     String?
+  bonusVotesAwarded Int  @default(0)
+  ratedById    String?
+  ratedAt      DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  task         StageTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  contestant   Contestant   @relation(fields: [contestantId], references: [id], onDelete: Cascade)
+  ratedBy      User?        @relation("TaskRater", fields: [ratedById], references: [id])
+
+  @@index([taskId])
+  @@index([contestantId])
+  @@index([status])
   @@index([createdAt])
 }

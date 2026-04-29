@@ -34,7 +34,9 @@ import {
   ShieldCheck,
   UserPlus,
   ChevronDown,
+  ChevronUp,
   ImageIcon,
+  ClipboardCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -92,6 +94,7 @@ interface NotificationData {
   type: 'info' | 'warning' | 'success' | 'error';
   isRead: boolean;
   createdAt: string;
+  emailContent?: string | null;
 }
 
 interface ContestantData {
@@ -283,6 +286,25 @@ export default function DashboardOverview() {
   const [copied, setCopied] = useState(false);
   const [votingEnabled, setVotingEnabled] = useState(true);
 
+  // Expanded notifications
+  const [expandedNotifs, setExpandedNotifs] = useState<Set<string>>(new Set());
+
+  // Tasks state
+  const [tasks, setTasks] = useState<Array<{
+    id: string; title: string; description: string | null;
+    instructions: string | null; dueDate: string | null; status: string;
+    maxBonusVotes: number;
+    submission: { id: string; status: string; submissionUrl: string; caption: string | null;
+      beautyRating: number | null; feedback: string | null; bonusVotesAwarded: number;
+      createdAt: string } | null;
+  }>>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+  const [submittingTaskId, setSubmittingTaskId] = useState('');
+  const [submitForm, setSubmitForm] = useState({ submissionUrl: '', caption: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+
   // Join Tournament Dialog state
   const [rulesDialogOpen, setRulesDialogOpen] = useState(false);
   const [categories, setCategories] = useState<CategoryData[]>([]);
@@ -360,6 +382,20 @@ export default function DashboardOverview() {
     }
   }, [token]);
 
+  const fetchTasks = useCallback(async () => {
+    if (!token) return;
+    setTasksLoading(true);
+    try {
+      const res = await fetch('/api/contestant/tasks', { headers });
+      const data = await res.json();
+      if (data.success) setTasks(data.data || []);
+    } catch {
+      // Ignore
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [token]);
+
   const fetchCategories = useCallback(async () => {
     try {
       const res = await fetch('/api/categories');
@@ -376,11 +412,16 @@ export default function DashboardOverview() {
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      await Promise.all([fetchContestant(), fetchStats(), fetchNotifications(), checkVotingStatus()]);
+      const [contestantResult] = await Promise.all([fetchContestant(), fetchStats(), fetchNotifications(), checkVotingStatus()]);
       setLoading(false);
     }
     fetchData();
-  }, [fetchContestant, fetchStats, fetchNotifications, checkVotingStatus]);
+    // Fetch tasks if contestant is active (check after fetchContestant resolves)
+    setTimeout(() => {
+      const state = useAuthStore.getState();
+      if (state.token) fetchTasks();
+    }, 500);
+  }, [fetchContestant, fetchStats, fetchNotifications, checkVotingStatus, fetchTasks]);
 
   // ────────────────────────────────────────────
   // Detect tournamentId / stageId from pageParams
@@ -522,6 +563,39 @@ export default function DashboardOverview() {
     }
   };
 
+  // Submit task handler
+  const handleSubmitTask = async () => {
+    if (!submitForm.submissionUrl.trim()) { toast.error('Submission URL is required'); return; }
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/contestant/tasks', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ taskId: submittingTaskId, submissionUrl: submitForm.submissionUrl.trim(), caption: submitForm.caption.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Task submitted successfully!');
+        setSubmitDialogOpen(false);
+        setSubmitForm({ submissionUrl: '', caption: '' });
+        setSubmittingTaskId('');
+        fetchTasks();
+      } else {
+        toast.error(data.message || data.error || 'Failed to submit task');
+      }
+    } catch {
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openSubmitDialog = (taskId: string) => {
+    setSubmittingTaskId(taskId);
+    setSubmitForm({ submissionUrl: '', caption: '' });
+    setSubmitDialogOpen(true);
+  };
+
   // ────────────────────────────────────────────
   // Date display
   // ────────────────────────────────────────────
@@ -596,6 +670,15 @@ export default function DashboardOverview() {
       iconBg: 'bg-gradient-to-br from-emerald-400 to-emerald-600',
     },
   ];
+
+  const toggleNotifExpand = (id: string) => {
+    setExpandedNotifs(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const recentVotes = stats?.recentVotes?.slice(0, 5) ?? [];
 
@@ -850,6 +933,206 @@ export default function DashboardOverview() {
                 </motion.div>
               ) : null}
             </AnimatePresence>
+
+            {/* ────────────────────────────────────── */}
+            {/* My Tasks Section (Active Contestants) */}
+            {/* ────────────────────────────────────── */}
+            {isContestant && contestant?.status === 'active' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15, duration: 0.4 }}
+              >
+                <Card className="border-0 shadow-sm overflow-hidden rounded-xl">
+                  <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        <ClipboardCheck className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-white">📋 Stage Tasks</h2>
+                        <p className="text-white/80 text-xs">Complete tasks from the admin to earn bonus votes</p>
+                      </div>
+                    </div>
+                  </div>
+                  <CardContent className="p-4 sm:p-6">
+                    {tasksLoading ? (
+                      <div className="space-y-3">
+                        {Array.from({ length: 2 }).map((_, i) => (
+                          <Skeleton key={i} className="h-24 rounded-xl" />
+                        ))}
+                      </div>
+                    ) : tasks.length === 0 ? (
+                      <div className="text-center py-8">
+                        <ClipboardCheck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">No tasks available right now</p>
+                        <p className="text-xs text-muted-foreground mt-1">Check back later for new tasks</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {tasks.map((task) => {
+                          const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
+                          const hasSubmission = task.submission !== null;
+                          const isRated = hasSubmission && task.submission!.status === 'rated';
+                          const isPending = hasSubmission && task.submission!.status === 'pending';
+                          const isExpanded = expandedTaskId === task.id;
+
+                          return (
+                            <Card key={task.id} className="border rounded-xl overflow-hidden">
+                              <CardContent className="p-4">
+                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h3 className="font-semibold text-sm">{task.title}</h3>
+                                      {task.status === 'active' ? (
+                                        <Badge className="bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400 text-[10px] border-0">Active</Badge>
+                                      ) : task.status === 'expired' ? (
+                                        <Badge className="bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 text-[10px] border-0">Expired</Badge>
+                                      ) : (
+                                        <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-950/40 dark:text-gray-400 text-[10px] border-0">{task.status}</Badge>
+                                      )}
+                                      {isOverdue && task.status === 'active' && (
+                                        <Badge className="bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 text-[10px] border-0">⚠️ Overdue</Badge>
+                                      )}
+                                    </div>
+                                    {task.description && (
+                                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
+                                    )}
+                                    <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                      {task.dueDate && (
+                                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          Due: {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                        </span>
+                                      )}
+                                      <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                                        🏆 Up to {task.maxBonusVotes} bonus votes
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="flex-shrink-0">
+                                    {!hasSubmission && task.status === 'active' ? (
+                                      <Button size="sm" className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl text-xs" onClick={() => openSubmitDialog(task.id)}>
+                                        <Send className="w-3 h-3 mr-1" />
+                                        Submit
+                                      </Button>
+                                    ) : isPending ? (
+                                      <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 text-xs border-0 py-1 px-2.5">
+                                        <Clock className="w-3 h-3 mr-1" />
+                                        Submitted — Awaiting Review
+                                      </Badge>
+                                    ) : isRated ? (
+                                      <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/20 rounded-lg px-3 py-1.5">
+                                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                        <div className="text-xs">
+                                          <span className="font-semibold text-green-700 dark:text-green-400">Rated {task.submission!.beautyRating}/10</span>
+                                          <span className="text-green-600 dark:text-green-500 ml-1">+{task.submission!.bonusVotesAwarded} votes</span>
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+
+                                {/* Expandable instructions */}
+                                {task.instructions && (
+                                  <div className="mt-3">
+                                    <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground p-0" onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}>
+                                      {isExpanded ? <ChevronUp className="w-3 h-3 mr-1" /> : <ChevronDown className="w-3 h-3 mr-1" />}
+                                      {isExpanded ? 'Hide Instructions' : 'Show Instructions'}
+                                    </Button>
+                                    {isExpanded && (
+                                      <div className="mt-2 p-3 bg-muted/50 rounded-lg border text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                        {task.instructions}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Rated feedback */}
+                                {isRated && task.submission!.feedback && (
+                                  <div className="mt-3 p-3 bg-green-50/50 dark:bg-green-950/10 rounded-lg border border-green-200 dark:border-green-800">
+                                    <p className="text-[11px] font-medium text-green-700 dark:text-green-400 mb-1">Admin Feedback:</p>
+                                    <p className="text-xs text-muted-foreground">{task.submission!.feedback}</p>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Submit Task Dialog */}
+            <Dialog open={submitDialogOpen} onOpenChange={setSubmitDialogOpen}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-lg">
+                    <Send className="w-5 h-5 text-primary" />
+                    Submit Task
+                  </DialogTitle>
+                  <DialogDescription>
+                    Provide your submission URL and optional caption for this task.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  {(() => {
+                    const task = tasks.find(t => t.id === submittingTaskId);
+                    return task ? (
+                      <>
+                        {task.instructions && (
+                          <div className="p-3 bg-muted/50 rounded-lg border text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                            <p className="font-medium text-foreground mb-1">📋 Instructions:</p>
+                            {task.instructions}
+                          </div>
+                        )}
+                        {task.description && (
+                          <p className="text-xs text-muted-foreground">{task.description}</p>
+                        )}
+                      </>
+                    ) : null;
+                  })()}
+                  <div className="space-y-2">
+                    <Label htmlFor="submit-url">Submission URL *</Label>
+                    <Input
+                      id="submit-url"
+                      placeholder="https://example.com/your-submission.jpg"
+                      value={submitForm.submissionUrl}
+                      onChange={(e) => setSubmitForm((p) => ({ ...p, submissionUrl: e.target.value }))}
+                    />
+                    <p className="text-[11px] text-muted-foreground">Image or video URL for your task submission</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="submit-caption">Caption (optional)</Label>
+                    <Textarea
+                      id="submit-caption"
+                      placeholder="Add a brief description..."
+                      value={submitForm.caption}
+                      onChange={(e) => setSubmitForm((p) => ({ ...p, caption: e.target.value }))}
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </div>
+                </div>
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button variant="outline" onClick={() => setSubmitDialogOpen(false)}>Cancel</Button>
+                  <Button
+                    onClick={handleSubmitTask}
+                    disabled={submitting || !submitForm.submissionUrl.trim()}
+                    className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
+                  >
+                    {submitting ? (
+                      <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />Submitting...</>
+                    ) : (
+                      <><Send className="w-4 h-4 mr-2" />Submit Task</>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* Eliminated Contestant Banner */}
             {isEliminated && contestant && (
@@ -1128,18 +1411,29 @@ export default function DashboardOverview() {
                           </Badge>
                         )}
                       </CardTitle>
-                      {unreadCount > 0 && (
+                      <div className="flex items-center gap-1">
+                        {unreadCount > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                            onClick={handleMarkAllRead}
+                            disabled={markingAllRead}
+                          >
+                            <CheckCheck className="w-3.5 h-3.5 mr-1" />
+                            Mark all read
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-xs h-7 text-muted-foreground hover:text-foreground"
-                          onClick={handleMarkAllRead}
-                          disabled={markingAllRead}
+                          className="text-xs h-7 text-primary hover:text-primary/80"
+                          onClick={() => navigate('dashboard-notifications')}
                         >
-                          <CheckCheck className="w-3.5 h-3.5 mr-1" />
-                          Mark all read
+                          View All
+                          <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
                         </Button>
-                      )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -1158,33 +1452,77 @@ export default function DashboardOverview() {
                     ) : notifications.length > 0 ? (
                       <ScrollArea className="max-h-96">
                         <div className="space-y-1">
-                          {notifications.map((notif) => (
-                            <div
-                              key={notif.id}
-                              className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${
-                                !notif.isRead
-                                  ? 'bg-primary/5 border border-primary/10'
-                                  : 'hover:bg-muted/50'
-                              }`}
-                            >
-                              {getNotifIcon(notif.type)}
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-sm ${!notif.isRead ? 'font-semibold' : 'font-medium'}`}>
-                                  {notif.title}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                                  {notif.message}
-                                </p>
-                                <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
-                                  <Clock className="w-3 h-3" />
-                                  {formatRelativeTime(notif.createdAt)}
+                          {notifications.map((notif) => {
+                            const isExpanded = expandedNotifs.has(notif.id);
+                            const hasEmail = !!notif.emailContent;
+                            return (
+                              <div
+                                key={notif.id}
+                                className={`rounded-xl transition-colors ${
+                                  !notif.isRead
+                                    ? 'bg-primary/5 border border-primary/10'
+                                    : 'hover:bg-muted/50'
+                                }`}
+                              >
+                                <div className="flex items-start gap-3 p-3">
+                                  {getNotifIcon(notif.type)}
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-sm ${!notif.isRead ? 'font-semibold' : 'font-medium'}`}>
+                                      {notif.title}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                      {notif.message}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-1.5">
+                                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                        <Clock className="w-3 h-3" />
+                                        {formatRelativeTime(notif.createdAt)}
+                                      </div>
+                                      {hasEmail && (
+                                        <button
+                                          onClick={() => toggleNotifExpand(notif.id)}
+                                          className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-medium transition-colors"
+                                        >
+                                          {isExpanded ? (
+                                            <>
+                                              <ChevronUp className="w-3 h-3" />
+                                              Hide email
+                                            </>
+                                          ) : (
+                                            <>
+                                              <ChevronDown className="w-3 h-3" />
+                                              View email
+                                            </>
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {!notif.isRead && (
+                                    <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
+                                  )}
                                 </div>
+                                <AnimatePresence>
+                                  {isExpanded && hasEmail && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: 'auto', opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="px-3 pb-3">
+                                        <div
+                                          className="max-h-[200px] overflow-y-auto rounded-lg bg-muted/80 border border-border/50 p-4 text-xs leading-relaxed text-muted-foreground [&_a]:text-primary [&_a]:underline [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-xs [&_h3]:font-semibold [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:mb-1 [&_table]:w-full [&_table]:text-[11px] [&_th]:text-left [&_th]:p-1.5 [&_th]:border-b [&_th]:font-medium [&_td]:p-1.5 [&_td]:border-b [&_img]:max-w-full [&_img]:rounded"
+                                          dangerouslySetInnerHTML={{ __html: notif.emailContent }}
+                                        />
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
                               </div>
-                              {!notif.isRead && (
-                                <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </ScrollArea>
                     ) : (
