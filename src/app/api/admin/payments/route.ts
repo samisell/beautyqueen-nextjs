@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { paginated, parsePagination, requireAdmin } from '@/lib/api-helpers';
+import { paginated, parsePagination, requireAdmin, error } from '@/lib/api-helpers';
 
 /**
  * GET /api/admin/payments?page=1&limit=20&status=pending&method=offline
@@ -97,7 +97,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error('Get admin payments error:', err);
-    const { error } = await import('@/lib/api-helpers');
     return error('Failed to load payments', 500);
   }
 }

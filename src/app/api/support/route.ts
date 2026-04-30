@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { success, error, rateLimit, isValidEmail, getClientIp } from '@/lib/api-helpers';
 import { verifyAccessToken } from '@/lib/auth';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 const VALID_CATEGORIES = [
   'account',
@@ -19,6 +21,38 @@ function generateTicketId(): string {
   let num = '';
   for (let i = 0; i < 4; i++) num += chars[Math.floor(Math.random() * chars.length)];
   return `BV-${num}`;
+}
+
+// Ensure the uploads directory exists
+async function ensureUploadDir(): Promise<string> {
+  const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'tickets');
+  await mkdir(uploadDir, { recursive: true });
+  return uploadDir;
+}
+
+/**
+ * Saves a base64-encoded attachment to disk and returns the public URL path.
+ */
+async function saveAttachment(
+  base64Data: string,
+  fileName: string,
+  mimeType: string,
+): Promise<string> {
+  const uploadDir = await ensureUploadDir();
+
+  // Sanitize file name — keep extension, replace unsafe chars
+  const ext = mimeType.split('/')[1]?.replace('+xml', '') || 'bin';
+  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60);
+  const uniqueName = `ticket-${Date.now()}-${safeName}.${ext}`;
+  const filePath = path.join(uploadDir, uniqueName);
+
+  // Strip data URL prefix if present
+  const rawBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+  const buffer = Buffer.from(rawBase64, 'base64');
+
+  await writeFile(filePath, buffer);
+
+  return `/uploads/tickets/${uniqueName}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -45,7 +79,7 @@ export async function POST(request: NextRequest) {
       return error('Description must be at least 20 characters long.');
     }
 
-    // Validate attachment if provided
+    // Validate attachment if provided — save to filesystem instead of storing base64
     let attachmentUrl: string | undefined;
     if (attachment) {
       if (!attachment.data || !attachment.name || !attachment.type) {
@@ -59,8 +93,8 @@ export async function POST(request: NextRequest) {
       if (!allowedTypes.includes(attachment.type)) {
         return error('Only PNG, JPG, WEBP, and PDF files are allowed.');
       }
-      // Store as data URL for simplicity (in production, use cloud storage)
-      attachmentUrl = `data:${attachment.type};base64,${attachment.data}`;
+      // Save file to disk and store only the URL path
+      attachmentUrl = await saveAttachment(attachment.data, attachment.name, attachment.type);
     }
 
     // Check if user is authenticated (optional — allows guest tickets)
@@ -69,7 +103,7 @@ export async function POST(request: NextRequest) {
     if (authHeader?.startsWith('Bearer ')) {
       const payload = verifyAccessToken(authHeader.split(' ')[1]);
       if (payload) {
-        userId = payload.id;
+        userId = payload.userId;
       }
     }
 

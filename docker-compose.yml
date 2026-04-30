@@ -1,0 +1,71 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: beautyvote-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://beautyvote:beautyvote@db:5432/beautyvote
+      - JWT_SECRET=${JWT_SECRET}
+      - REFRESH_SECRET=${REFRESH_SECRET}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      - APP_NAME=${APP_NAME:-BeautyVote}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - EMAIL_FROM=${EMAIL_FROM:-BeautyVote <noreply@beautyvote.com>}
+      - PAYSTACK_PUBLIC_KEY=${PAYSTACK_PUBLIC_KEY}
+      - PAYSTACK_SECRET_KEY=${PAYSTACK_SECRET_KEY}
+      - FLUTTERWAVE_PUBLIC_KEY=${FLUTTERWAVE_PUBLIC_KEY}
+      - FLUTTERWAVE_SECRET_KEY=${FLUTTERWAVE_SECRET_KEY}
+      - DEFAULT_CURRENCY=${DEFAULT_CURRENCY:-NGN}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/public/uploads
+
+  db:
+    image: postgres:16-alpine
+    container_name: beautyvote-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: beautyvote
+      POSTGRES_PASSWORD: beautyvote
+      POSTGRES_DB: beautyvote
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beautyvote -d beautyvote"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: Caddy reverse proxy (uncomment if needed)
+  # caddy:
+  #   image: caddy:2-alpine
+  #   container_name: beautyvote-caddy
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+  #   depends_on:
+  #     - app
+
+volumes:
+  postgres_data:
+  uploads:
+  # caddy_data:
+  # caddy_config:

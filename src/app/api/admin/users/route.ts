@@ -15,9 +15,10 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {};
     if (search) {
+      // SQLite LIKE is case-insensitive by default — no mode option needed
       where.OR = [
-        { name: { contains: search.trim(), mode: 'insensitive' } },
-        { email: { contains: search.trim(), mode: 'insensitive' } },
+        { name: { contains: search.trim() } },
+        { email: { contains: search.trim() } },
       ];
     }
 

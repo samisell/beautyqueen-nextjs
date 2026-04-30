@@ -1,9 +1,29 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// BeautyVote Platform — Prisma Schema
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider: PostgreSQL (production-ready)
+//
+// IMPORTANT: Development should also use PostgreSQL via docker-compose or a
+// local Postgres instance. Set DATABASE_URL in .env to your Postgres
+// connection string, e.g.:
+//   DATABASE_URL="postgresql://user:pass@localhost:5432/beautyvote"
+//
+// When switching from the legacy SQLite dev database, run:
+//   bun run db:push          (schema-only sync, no data migration)
+//   — or —
+//   bun run db:migrate       (proper migration with prisma/migrations/)
+//
+// NOTE: `@db.Text` annotations are used for potentially large text fields
+// (JSON blobs, long descriptions, etc.) to ensure PostgreSQL TEXT columns
+// are used instead of VARCHAR(255).
+// ─────────────────────────────────────────────────────────────────────────────
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -43,7 +63,7 @@ model Contestant {
   id               String    @id @default(cuid())
   name             String
   username         String?   @unique
-  bio              String?
+  bio              String?   @db.Text
   imageUrl         String
   category         String
   categoryId       String?
@@ -56,15 +76,15 @@ model Contestant {
   eliminatedById   String?
   // Profile fields
   phone            String?
-  address          String?
+  address          String?   @db.Text
   country          String?
   state            String?
   bankName         String?
   bankAccountName  String?
   bankAccountNumber String?
   bankSortCode     String?
-  socialLinks      String?   // JSON: { instagram, twitter, facebook, tiktok, youtube, website }
-  gallery          String?   // JSON array: ["url1", "url2", ...]
+  socialLinks      String?   @db.Text  // JSON: { instagram, twitter, facebook, tiktok, youtube, website }
+  gallery          String?   @db.Text  // JSON array: ["url1", "url2", ...]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -88,7 +108,7 @@ model Contestant {
 model Category {
   id          String      @id @default(cuid())
   name        String      @unique
-  description String?
+  description String?     @db.Text
   icon        String?
   order       Int         @default(0)
   createdAt   DateTime    @default(now())
@@ -171,7 +191,7 @@ model Payment {
   accountName     String?
   accountNumber   String?
   depositorName   String?
-  adminNote       String?
+  adminNote       String?   @db.Text
   reviewedBy      String?
   reviewedAt      DateTime?
   createdAt       DateTime  @default(now())
@@ -193,7 +213,7 @@ model Payment {
 model Tournament {
   id          String   @id @default(cuid())
   name        String
-  description String?
+  description String?   @db.Text
   status      String   @default("draft")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -207,7 +227,7 @@ model TournamentStage {
   id             String   @id @default(cuid())
   tournamentId   String
   name           String
-  description    String?
+  description    String?   @db.Text
   startDate      DateTime
   endDate        DateTime
   status         String   @default("upcoming")
@@ -230,7 +250,7 @@ model TournamentStage {
 model PlatformSetting {
   id        String   @id @default(cuid())
   key       String   @unique
-  value     String
+  value     String   @db.Text
   updatedAt DateTime @updatedAt
 
   @@index([key])
@@ -240,7 +260,7 @@ model BonusVote {
   id           String   @id @default(cuid())
   contestantId String
   votesAdded    Int
-  reason       String?
+  reason       String?  @db.Text
   addedById     String
   createdAt    DateTime @default(now())
 
@@ -257,7 +277,7 @@ model EmailVerification {
   userId    String   @unique
   otp       String
   purpose   String   @default("verification")
- expiresAt DateTime
+  expiresAt DateTime
   verifiedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -275,8 +295,8 @@ model EmailLog {
   subject   String
   template  String
   status    String   @default("sent")
- error     String?
-  data      String?
+  error     String?  @db.Text
+  data      String?  @db.Text
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -318,10 +338,10 @@ model Notification {
   id           String   @id @default(cuid())
   userId       String
   title        String
-  message      String
+  message      String   @db.Text
   type         String   @default("info")
   isRead       Boolean  @default(false)
-  emailContent String?
+  emailContent String?  @db.Text
   createdAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -335,8 +355,8 @@ model StageTask {
   id          String   @id @default(cuid())
   stageId     String
   title       String
-  description String?
-  instructions String?
+  description String?  @db.Text
+  instructions String? @db.Text
   dueDate     DateTime?
   status      String   @default("active")
   maxBonusVotes Int     @default(10)
@@ -356,10 +376,10 @@ model TaskSubmission {
   taskId       String
   contestantId String
   submissionUrl String
-  caption      String?
+  caption      String?  @db.Text
   status       String   @default("pending")
   beautyRating Int?
-  feedback     String?
+  feedback     String?  @db.Text
   bonusVotesAwarded Int  @default(0)
   ratedById    String?
   ratedAt      DateTime?
@@ -383,7 +403,7 @@ model ContactMessage {
   phone     String?
   subject   String?
   category  String?
-  message   String
+  message   String   @db.Text
   isRead    Boolean  @default(false)
   userId    String?
   createdAt DateTime @default(now())
@@ -400,10 +420,10 @@ model SupportTicket {
   category    String
   priority    String   @default("medium")
   subject     String
-  description String
+  description String   @db.Text
   attachmentUrl String?
   status      String   @default("open")
-  adminReply  String?
+  adminReply  String?  @db.Text
   repliedBy   String?
   repliedAt   DateTime?
   isReadByUser Boolean @default(false)

@@ -24,7 +24,7 @@ import { randomUUID } from 'crypto';
  *   - Admin must approve via /api/admin/payments/[id]/approve
  *
  * For mock (testing):
- *   - Instantly completes payment (legacy behavior)
+ *   - Instantly completes payment — ONLY available in development
  */
 export async function POST(request: NextRequest) {
   try {
@@ -40,10 +40,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { packageId, paymentMethod: methodInput } = body;
 
-    // Validate payment method
-    const validMethods: PaymentMethod[] = ['flutterwave', 'paystack', 'offline', 'mock'];
-    const paymentMethod: PaymentMethod =
-      validMethods.includes(methodInput) ? methodInput : 'mock';
+    // Validate payment method — 'mock' is only allowed in development
+    const isProduction = process.env.NODE_ENV === 'production';
+    const validMethods: PaymentMethod[] = isProduction
+      ? ['flutterwave', 'paystack', 'offline']
+      : ['flutterwave', 'paystack', 'offline', 'mock'];
+
+    if (!methodInput || !validMethods.includes(methodInput)) {
+      return error(
+        isProduction
+          ? 'Invalid payment method. Accepted: flutterwave, paystack, offline'
+          : 'Invalid payment method. Accepted: flutterwave, paystack, offline, mock (dev only)',
+        400
+      );
+    }
+
+    const paymentMethod: PaymentMethod = methodInput;
 
     // Validate packageId
     if (!packageId || typeof packageId !== 'string') {
@@ -66,9 +78,13 @@ export async function POST(request: NextRequest) {
     const transactionId = generateTransactionId();
 
     // ────────────────────────────────────────────
-    // MOCK PAYMENT (instant completion, for testing)
+    // MOCK PAYMENT (instant completion, for testing ONLY)
     // ────────────────────────────────────────────
     if (paymentMethod === 'mock') {
+      if (isProduction) {
+        return error('Mock payments are disabled in production', 400);
+      }
+
       const result = await withTransaction(async (tx) => {
         const payment = await tx.payment.create({
           data: {
@@ -94,8 +110,8 @@ export async function POST(request: NextRequest) {
         await tx.notification.create({
           data: {
             userId: user.userId,
-            title: 'Vote Package Purchased!',
-            message: `You purchased the ${votePackage.name} package with ${totalVotes} votes (${votePackage.bonusVotes} bonus votes included!).`,
+            title: 'Vote Package Purchased! (Mock)',
+            message: `You purchased the ${votePackage.name} package with ${totalVotes} votes (${votePackage.bonusVotes} bonus votes included!). [MOCK MODE]`,
             type: 'success',
           },
         });
@@ -122,9 +138,10 @@ export async function POST(request: NextRequest) {
           totalVotes,
           packageName: votePackage.name,
           paymentMethod,
+          isMock: true,
         },
         201,
-        { message: 'Vote package purchased successfully' }
+        { message: 'Vote package purchased successfully (mock mode)' }
       );
     }
 
@@ -159,6 +176,8 @@ export async function POST(request: NextRequest) {
         return p;
       });
 
+      const bankDetails = await (await import('@/lib/payment-gateways')).getOfflineBankDetails();
+
       return success(
         {
           payment: {
@@ -173,9 +192,9 @@ export async function POST(request: NextRequest) {
           totalVotes,
           packageName: votePackage.name,
           paymentMethod: 'offline',
-          bankDetails: paymentConfig.offline,
+          bankDetails,
           nextStep: 'upload_proof',
-          message: `Transfer ${votePackage.price.toLocaleString()} to the provided bank details, then upload your payment proof.`,
+          message: `Transfer ₦${votePackage.price.toLocaleString()} to the provided bank details, then upload your payment proof.`,
         },
         201,
         { message: 'Offline payment initiated. Please upload payment proof.' }

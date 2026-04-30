@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.gitignore
+*.md
+.env*
+!.env.example
+db/
+backups/
+*.log
+claude.json
+.claude
+.z-ai-config
+mini-services/
+Dockerfile
+docker-compose.yml
+Caddyfile

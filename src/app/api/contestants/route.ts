@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
       where.status = status;
     }
     if (search) {
-      where.name = { contains: search.trim(), mode: 'insensitive' };
+      // SQLite LIKE is case-insensitive by default — no mode option needed
+      where.name = { contains: search.trim() };
     }
 
     const [contestants, total] = await Promise.all([

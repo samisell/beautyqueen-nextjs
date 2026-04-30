@@ -530,3 +530,100 @@ Stage Summary:
 - Contact API: Updated to accept phone, category, honeypot spam check
 - Support API: Updated to handle base64 file attachments with validation
 - Prisma: Added phone, category fields to ContactMessage model
+
+---
+Task IDs: 2.1, 2.3, 2.4, 3.1, 3.2, 3.3, 3.5
+Agent: Backend Cleanup Agent
+Task: Remove dead deps, PostgreSQL schema, middleware, N+1 fix, caching, attachment storage, dead import fix
+
+Work Log:
+
+### Task 2.1 — Remove dead dependencies from package.json
+- REMOVED from dependencies:
+  - `next-auth` (custom JWT auth used instead)
+  - `next-intl` (no i18n setup)
+  - `sharp` (never imported)
+  - `@mdxeditor/editor` (never used)
+  - `react-markdown` (never used)
+  - `react-syntax-highlighter` (never used)
+  - `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` (never used)
+  - `z-ai-web-dev-sdk` (dev SDK, not for production)
+  - `vaul` (unused)
+  - `input-otp` (unused, OTP handled with custom code)
+- MOVED `prisma` from `dependencies` to `devDependencies` (only `@prisma/client` needed in prod)
+
+### Task 2.3 — Update Prisma schema for PostgreSQL compatibility
+- Changed `datasource db` provider from `sqlite` to `postgresql`
+- Added detailed header comment explaining:
+  - PostgreSQL provider for production
+  - Dev should use PostgreSQL via docker-compose or local instance
+  - Migration instructions (`db:push` or `db:migrate`)
+- Added `@db.Text` annotations for all potentially large String fields:
+  - Contestant: `bio`, `address`, `socialLinks`, `gallery`
+  - Category: `description`
+  - Payment: `adminNote`
+  - Tournament: `description`
+  - TournamentStage: `description`
+  - PlatformSetting: `value`
+  - BonusVote: `reason`
+  - EmailLog: `error`, `data`
+  - Notification: `message`, `emailContent`
+  - StageTask: `description`, `instructions`
+  - TaskSubmission: `caption`, `feedback`
+  - ContactMessage: `message`
+  - SupportTicket: `description`, `adminReply`
+- Did NOT run `db:push` (schema targets PostgreSQL but dev env uses SQLite)
+
+### Task 2.4 — Add Next.js middleware for API route protection
+- Created `/src/middleware.ts` with:
+  - Security headers on ALL responses: X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy, Permissions-Policy, X-XSS-Protection, X-DNS-Prefetch-Control
+  - CORS headers for `/api/*` routes: Access-Control-Allow-Origin, Allow-Methods, Allow-Headers, Max-Age
+  - Rate-limit hint header (`X-RateLimit-Policy: 60;w=60`) for API routes
+  - Content-Security-Policy for non-API routes (allows Paystack/Flutterwave frames, Unsplash images, Google Fonts)
+  - Matcher skips static files, _next/image, favicon.ico, robots.txt, sitemap.xml
+  - Does NOT implement global auth (per-route Bearer token auth is sufficient)
+
+### Task 3.1 — Fix N+1 vote insertion in vote-self route
+- Updated `/src/app/api/contestant/vote-self/route.ts`:
+  - Replaced `Promise.all(votePromises)` (individual `tx.vote.create` calls) with `tx.vote.createMany({ data: voteData })`
+  - Batch inserts all votes in a single SQL statement instead of N individual queries
+  - `public-vote/verify` was already fixed (uses `createMany`)
+
+### Task 3.2 — Add memory caching utility
+- Created `/src/lib/cache.ts`:
+  - `cachedFetch<T>(key, fetcher, ttlMs)` — generic cache with TTL (default 5 min)
+  - `invalidateCache(key?)` — clear specific key or all cache entries
+  - Simple `Map<string, CacheEntry>` implementation suitable for single-server deploys
+- Updated `/src/app/api/settings/route.ts`:
+  - Platform settings now cached for 2 minutes using `cachedFetch`
+  - Avoids repeated DB queries for heavily-hit public settings endpoint
+  - Exports `invalidateCache` for admin settings updates to bust cache
+
+### Task 3.3 — Fix base64 attachment storage
+- Updated `/src/app/api/support/route.ts`:
+  - Instead of storing full base64 data URL in DB, saves file to `public/uploads/tickets/`
+  - Added `saveAttachment()` function: strips data URL prefix, decodes base64, writes buffer to disk
+  - Added `ensureUploadDir()`: creates `public/uploads/tickets/` with `mkdir({ recursive: true })`
+  - File names sanitized and made unique with timestamp prefix
+  - Only the relative URL path (e.g., `/uploads/tickets/ticket-1234-image.png`) stored in `attachmentUrl`
+  - Uses `node:fs/promises` and `node:path` (server-side only)
+
+### Task 3.5 — Fix dead import in admin/payments route
+- Updated `/src/app/api/admin/payments/route.ts`:
+  - Added `error` to the static import from `@/lib/api-helpers`
+  - Removed the dynamic `await import('@/lib/api-helpers')` inside the catch block (was redundant since `error` is a simple synchronous function)
+  - Cleaner code, avoids unnecessary async import in error path
+
+### Verification
+- Ran `bun run lint` — zero errors, zero warnings
+- Dev server compiles successfully
+
+Stage Summary:
+- 12 unused packages removed from dependencies; `prisma` moved to devDependencies
+- Prisma schema ready for PostgreSQL with `@db.Text` on all large text fields
+- Security middleware adds HTTP security headers and CORS for API routes
+- N+1 vote insertion fixed in contestant self-vote route (batch createMany)
+- In-memory cache utility added; platform settings endpoint uses 2-min cache
+- Support ticket attachments now saved to filesystem instead of storing base64 in DB
+- Dead dynamic import removed from admin payments route
+- Zero ESLint errors

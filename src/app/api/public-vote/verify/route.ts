@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { db, withTransaction } from '@/lib/db';
 import { success, error, getClientIp, rateLimit } from '@/lib/api-helpers';
+import { verifyPayment } from '@/lib/payment-gateways';
 import { sendPaymentSuccessfulEmail } from '@/lib/email';
 
 /**
@@ -9,13 +10,11 @@ import { sendPaymentSuccessfulEmail } from '@/lib/email';
  * Verifies a completed public vote payment and credits votes.
  * No auth required.
  *
- * Body: { reference: string }
+ * Body: { reference: string, method: 'flutterwave' | 'paystack' }
  *
- * Flow:
- * 1. Find payment by reference
- * 2. If already completed → return success with vote count
- * 3. If pending → for mock implementation, mark as completed and credit votes
- * 4. Create PurchasedVote + individual Vote records + increment contestant.totalVotes
+ * IMPORTANT: In production, this actually verifies with the payment gateway.
+ * In development (when gateway keys are not configured), it requires a
+ * `demo=1` flag to auto-complete.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { reference } = body;
+    const { reference, method: methodInput, demo } = body;
 
     if (!reference || typeof reference !== 'string') {
       return error('Payment reference is required');
@@ -48,7 +47,7 @@ export async function POST(request: NextRequest) {
       return error('Payment record not found', 404);
     }
 
-    // Already completed — return success with vote count
+    // Already completed — return success with vote count (idempotent)
     if (payment.status === 'completed') {
       const purchasedVote = await db.purchasedVote.findFirst({
         where: {
@@ -88,31 +87,66 @@ export async function POST(request: NextRequest) {
     }
 
     if (contestant.status !== 'active') {
-      // Mark payment as failed if contestant is no longer active
       await db.payment.update({
         where: { id: payment.id },
         data: { status: 'failed' },
       });
-
       return error('Voting is no longer available for this contestant', 400);
+    }
+
+    // ────────────────────────────────────────────
+    // VERIFY WITH PAYMENT GATEWAY
+    // ────────────────────────────────────────────
+    const paymentMethod = payment.paymentMethod as 'flutterwave' | 'paystack';
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    // In production, we MUST verify with the gateway
+    if (isProduction && paymentMethod !== 'offline') {
+      // Do NOT allow demo mode in production
+      if (!paymentMethod || !['flutterwave', 'paystack'].includes(paymentMethod)) {
+        return error('Invalid payment method for verification', 400);
+      }
+
+      const result = await verifyPayment({ reference, paymentMethod });
+
+      if (!result.success) {
+        if (result.status === 'pending') {
+          return success({
+            paymentId: payment.id,
+            status: 'pending',
+            message: result.message || 'Payment is still being processed. Please check back shortly.',
+          });
+        }
+        // Mark as failed if gateway says failed
+        await db.payment.update({
+          where: { id: payment.id },
+          data: { status: 'failed' },
+        });
+        return error(result.message || 'Payment verification failed. Votes were not credited.', 400);
+      }
+    } else if (paymentMethod !== 'offline') {
+      // Development mode: require demo flag to auto-complete
+      if (demo !== '1' && demo !== 1 && demo !== true) {
+        return error(
+          'Payment not yet verified with gateway. In development, pass demo=1 to simulate.',
+          400
+        );
+      }
+      // Dev auto-complete continues below
+    } else {
+      // Offline payments must be approved by admin, not via this endpoint
+      return error('Offline payments must be approved by an admin after proof upload.', 400);
     }
 
     const totalVotes = payment.package.votes + payment.package.bonusVotes;
 
-    // ────────────────────────────────────────────
-    // For mock / demo: auto-complete the payment
-    // ────────────────────────────────────────────
-    // In production, you would verify with the actual payment gateway here.
-
     // Complete the payment atomically: credit votes, create records
     await withTransaction(async (tx) => {
-      // Mark payment as completed
       await tx.payment.update({
         where: { id: payment.id },
         data: { status: 'completed' },
       });
 
-      // Create PurchasedVote record
       const purchasedVote = await tx.purchasedVote.create({
         data: {
           userId: payment.userId,
@@ -123,24 +157,20 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Create individual Vote records for the contestant
-      for (let i = 0; i < totalVotes; i++) {
-        await tx.vote.create({
-          data: {
-            contestantId: contestant.id,
-            userId: payment.userId,
-            voteType: 'purchased',
-            purchasedVoteId: purchasedVote.id,
-          },
-        });
-      }
+      // Create individual Vote records in batch
+      const voteData = Array.from({ length: totalVotes }, () => ({
+        contestantId: contestant.id,
+        userId: payment.userId,
+        voteType: 'purchased' as const,
+        purchasedVoteId: purchasedVote.id,
+      }));
 
-      // Increment contestant totalVotes
+      // Use createMany for batch insert (much faster than individual inserts)
+      await tx.vote.createMany({ data: voteData });
+
       await tx.contestant.update({
         where: { id: contestant.id },
-        data: {
-          totalVotes: { increment: totalVotes },
-        },
+        data: { totalVotes: { increment: totalVotes } },
       });
     });
 
@@ -160,7 +190,7 @@ export async function POST(request: NextRequest) {
         packageName: payment.package.name,
         votes: String(totalVotes),
         amount: `${symbol}${payment.amount.toLocaleString()}`,
-        method: 'Paystack',
+        method: paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1),
         reference: payment.reference || payment.transactionId || 'N/A',
       }
     ).catch(() => { /* fire-and-forget */ });

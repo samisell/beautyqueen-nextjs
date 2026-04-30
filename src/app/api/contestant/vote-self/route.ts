@@ -84,16 +84,13 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        const votePromises = Array.from({ length: totalVotes }, () =>
-          tx.vote.create({
-            data: {
-              contestantId: contestant.id,
-              userId: user.userId,
-              voteType: 'paid',
-            },
-          })
-        );
-        await Promise.all(votePromises);
+        // Batch insert votes (avoids N+1)
+        const voteData = Array.from({ length: totalVotes }, () => ({
+          contestantId: contestant.id,
+          userId: user.userId,
+          voteType: 'paid' as const,
+        }));
+        await tx.vote.createMany({ data: voteData });
 
         await tx.contestant.update({
           where: { id: contestant.id },
