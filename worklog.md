@@ -627,3 +627,62 @@ Stage Summary:
 - Support ticket attachments now saved to filesystem instead of storing base64 in DB
 - Dead dynamic import removed from admin payments route
 - Zero ESLint errors
+
+---
+Task ID: 1
+Agent: Main Orchestrator
+Task: Implement full Telegram bot integration for auto-register/login via Telegram Mini App
+
+Work Log:
+- Updated Prisma schema (User model): added 3 optional fields — `telegramId` (unique), `telegramUsername`, `telegramPhotoUrl`
+- Created `src/lib/telegram.ts` — Telegram WebApp auth utility library:
+  - `parseTelegramInitData()` — parses Telegram's URL-encoded initData string into structured object
+  - `validateTelegramInitData()` — full HMAC-SHA256 signature verification using bot token
+  - Constant-time string comparison via Node.js `timingSafeEqual` (timing attack protection)
+  - Replay protection with configurable `maxAgeSeconds` (default 5 min)
+  - Helper functions: `getTelegramBotToken()`, `isTelegramAuthEnabled()`, `telegramPlaceholderEmail()`, `generateTelegramPassword()`
+- Created `POST /api/auth/telegram` — Telegram auth API endpoint:
+  - Validates initData cryptographic signature (same security as Telegram's official docs)
+  - Existing user (matched by telegramId): updates profile info if changed, issues JWT
+  - New user: auto-registers with placeholder email, random secure password, auto-generated referral code, pre-verified status
+  - Same JWT token generation and httpOnly cookie pattern as existing auth/login and auth/register
+  - Rate limited (15 req/min/IP)
+  - Returns `isNewUser` flag and `authMethod: 'telegram'` in response
+  - Completely independent of existing email/password auth — zero modifications to existing auth routes
+- Created `mini-services/telegram-bot/` — Standalone Telegram bot service (port 3010):
+  - `index.ts`: HTTP server with webhook endpoint, health check, webhook-info
+  - Handles /start (welcome + web app button), /help (instructions), /vote (quick open), /profile (user profile)
+  - Uses Telegram's inline keyboard `web_app` button to open the Next.js app
+  - `setup.ts`: Bot configuration script (description, commands, menu button)
+  - Sets up menu button ("Open BeautyVote") visible at all times in chat
+- Created `src/hooks/use-telegram.ts` — React hook for Telegram WebApp detection:
+  - Detects `window.Telegram.WebApp` availability
+  - Initializes WebApp SDK (ready, expand, color scheme sync)
+  - Auto-authenticates on mount when inside Telegram (if not already logged in)
+  - Uses ref guard to prevent duplicate login attempts
+  - Supports start_param routing (profile, vote, referral codes)
+- Updated `src/app/page.tsx` — Main SPA entry point:
+  - Integrates `useTelegram()` hook for WebApp initialization
+  - Shows loading spinner during Telegram auto-auth
+  - Hides navbar/footer when authenticated inside Telegram (cleaner in-app experience)
+  - Skips normal auth/me check when Telegram auto-auth is handling it
+- Updated `src/pages/LoginPage.tsx`:
+  - Added prominent "Continue with Telegram" button (cyan/blue branded) above email form
+  - Opens `https://t.me/{bot_username}` in new tab
+  - Shows auto-login notice when already inside Telegram WebApp
+  - Existing email/password login completely untouched
+- Updated `src/app/api/auth/me/route.ts` — includes telegramId, telegramUsername in response; falls back to telegramPhotoUrl as avatar
+- Updated `src/types/index.ts` — added telegramId, telegramUsername to User interface
+- Updated `.env` — added TELEGRAM_BOT_TOKEN, TELEGRAM_WEB_APP_URL, NEXT_PUBLIC_TELEGRAM_BOT_USERNAME placeholders
+- Zero ESLint errors, dev server compiles clean
+
+Stage Summary:
+- Full Telegram Mini App integration implemented without modifying any existing auth code
+- Users opening the app from Telegram bot are auto-registered and auto-logged in (zero friction)
+- Cryptographic signature verification ensures data integrity (HMAC-SHA256 with constant-time comparison)
+- Replay protection with 5-minute expiry on auth_date
+- Telegram users get placeholder emails and random passwords (they always login via Telegram)
+- Existing email/password auth remains 100% functional — two independent auth pathways
+- Login page has "Continue with Telegram" CTA for normal browser users
+- Bot mini-service with setup script, webhook support, and 4 bot commands
+- All code follows existing project patterns (rate limiting, JWT cookies, error handling, TypeScript types)

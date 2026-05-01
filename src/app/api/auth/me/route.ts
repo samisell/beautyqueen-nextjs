@@ -23,6 +23,9 @@ export async function GET(request: NextRequest) {
         avatar: true,
         isVerified: true,
         referralCode: true,
+        telegramId: true,
+        telegramUsername: true,
+        telegramPhotoUrl: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -32,7 +35,14 @@ export async function GET(request: NextRequest) {
       return error('User not found', 404);
     }
 
-    return success(userData);
+    // Use Telegram photo as avatar if no custom avatar is set
+    const responseData = {
+      ...userData,
+      avatar: userData.avatar || userData.telegramPhotoUrl || null,
+    };
+    delete (responseData as Record<string, unknown>).telegramPhotoUrl;
+
+    return success(responseData);
   } catch (err) {
     console.error('Get current user error:', err);
     return error('An unexpected error occurred', 500);

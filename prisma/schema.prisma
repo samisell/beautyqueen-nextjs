@@ -37,6 +37,10 @@ model User {
   isVerified    Boolean   @default(false)
   referredBy    String?
   referralCode  String    @unique
+  // Telegram auth fields (optional — users can link their Telegram account)
+  telegramId       String?   @unique
+  telegramUsername String?
+  telegramPhotoUrl String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

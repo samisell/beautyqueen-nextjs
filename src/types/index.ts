@@ -35,6 +35,9 @@ export interface User {
   avatar?: string;
   isVerified: boolean;
   referralCode: string;
+  // Telegram auth fields (optional)
+  telegramId?: string;
+  telegramUsername?: string;
   createdAt: string;
 }
 

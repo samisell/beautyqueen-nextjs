@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigationStore } from '@/stores/navigation-store';
 import { useUIStore } from '@/stores/ui-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { useTelegram } from '@/hooks/use-telegram';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 
@@ -85,6 +86,14 @@ export default function App() {
   const { theme } = useUIStore();
   const { user, isAuthenticated } = useAuthStore();
 
+  // ── Telegram WebApp integration ──
+  // When running inside Telegram, this handles:
+  // 1. Initializing the WebApp SDK (ready, expand)
+  // 2. Auto-authenticating via initData
+  // 3. Applying Telegram's color scheme
+  // This is completely independent of the existing email/password auth.
+  const telegram = useTelegram();
+
   // Apply theme on mount
   useEffect(() => {
     if (theme === 'dark') {
@@ -95,7 +104,14 @@ export default function App() {
   }, [theme]);
 
   // Check for existing auth token on mount
+  // Skip if already authenticated via Telegram
   useEffect(() => {
+    if (isAuthenticated) return;
+
+    // If inside Telegram, the useTelegram hook handles auth
+    if (telegram.isTelegram) return;
+
+    // Normal auth check for regular browsers
     const checkAuth = async () => {
       try {
         const res = await fetch('/api/auth/me');
@@ -110,38 +126,60 @@ export default function App() {
       }
     };
     checkAuth();
-  }, []);
+  }, [isAuthenticated, telegram.isTelegram]);
+
+  // Add Telegram class to body for CSS targeting
+  useEffect(() => {
+    if (telegram.isTelegram) {
+      document.body.classList.add('telegram-webapp');
+    }
+  }, [telegram.isTelegram]);
 
   const isDashboardPage = dashboardPages.includes(currentPage);
   const isAuthPage = ['login', 'register', 'forgot-password'].includes(currentPage);
 
+  // In Telegram mode, hide the navbar and footer for a cleaner in-app experience
+  // (users can still navigate via the Telegram back button and in-app navigation)
+  const showNavbar = !telegram.isTelegram || !isAuthenticated;
+  const showFooter = !isDashboardPage && !isAuthPage && !telegram.isTelegram;
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
+    <div className={`min-h-screen flex flex-col ${telegram.isTelegram ? 'telegram-webapp-wrapper' : ''}`}>
+      {showNavbar && <Navbar />}
 
       <main className="flex-1">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentPage}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className={
-              isAuthPage
-                ? 'min-h-[calc(100vh-4rem)]'
-                : isDashboardPage
-                ? ''
-                : ''
-            }
-          >
-            <PageRenderer />
-          </motion.div>
-        </AnimatePresence>
+        {/* Show a loading state while Telegram auto-auth is in progress */}
+        {telegram.isTelegram && telegram.isInited && !isAuthenticated ? (
+          <div className="min-h-[60vh] flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+              <p className="text-muted-foreground text-sm">Signing in via Telegram...</p>
+            </div>
+          </div>
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentPage}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className={
+                isAuthPage
+                  ? 'min-h-[calc(100vh-4rem)]'
+                  : isDashboardPage
+                  ? ''
+                  : ''
+              }
+            >
+              <PageRenderer />
+            </motion.div>
+          </AnimatePresence>
+        )}
       </main>
 
-      {/* Footer only on non-dashboard, non-auth pages */}
-      {!isDashboardPage && !isAuthPage && <Footer />}
+      {/* Footer only on non-dashboard, non-auth, non-telegram pages */}
+      {showFooter && <Footer />}
     </div>
   );
 }

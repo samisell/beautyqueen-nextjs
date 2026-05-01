@@ -15,6 +15,7 @@ import {
   Chrome,
   Apple,
   ArrowRight,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -71,6 +72,22 @@ export default function LoginPage() {
     }
   };
 
+  // ── Telegram Login Handler ──
+  // Opens the Telegram bot where the user can click "Start" to auto-login
+  const handleTelegramLogin = () => {
+    // Get bot username from env or use a default
+    const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
+    if (botUsername) {
+      window.open(`https://t.me/${botUsername}`, '_blank');
+      toast.info('Opening Telegram... Click "Start" to sign in automatically!');
+    } else {
+      toast.info('Telegram bot is not configured. Please contact support.');
+    }
+  };
+
+  // Check if running inside Telegram (auto-login is handled by useTelegram hook)
+  const isTelegram = typeof window !== 'undefined' && !!window.Telegram?.WebApp;
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 relative">
       {/* Background decorations */}
@@ -109,6 +126,35 @@ export default function LoginPage() {
           </CardHeader>
 
           <CardContent className="px-8 pb-8">
+            {/* ── Telegram Quick Login (shown first when NOT inside Telegram) ── */}
+            {!isTelegram && (
+              <>
+                <Button
+                  type="button"
+                  onClick={handleTelegramLogin}
+                  className="w-full h-11 bg-[#2AABEE] hover:bg-[#229ED9] text-white font-semibold rounded-xl shadow-lg shadow-[#2AABEE]/25 mb-4"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Continue with Telegram
+                </Button>
+                <div className="relative my-4">
+                  <Separator />
+                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs text-muted-foreground">
+                    or sign in with email
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* ── Inside Telegram notice ── */}
+            {isTelegram && (
+              <div className="mb-4 p-3 rounded-xl bg-[#2AABEE]/10 border border-[#2AABEE]/20">
+                <p className="text-sm text-center text-muted-foreground">
+                  You&apos;re in Telegram — signing in automatically...
+                </p>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               {/* Email */}
               <div className="space-y-2">
@@ -184,15 +230,24 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            {/* Divider */}
-            <div className="relative my-6">
-              <Separator />
-              <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs text-muted-foreground">
-                or continue with
-              </span>
-            </div>
+            {/* Divider (only show if not already shown above) */}
+            {!isTelegram ? (
+              <div className="relative my-6">
+                <Separator />
+                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs text-muted-foreground">
+                  or continue with
+                </span>
+              </div>
+            ) : (
+              <div className="relative my-6">
+                <Separator />
+                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs text-muted-foreground">
+                  or continue with
+                </span>
+              </div>
+            )}
 
-            {/* Social Login (Mock) */}
+            {/* Social Login */}
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="outline"
