@@ -6,6 +6,7 @@ import { useNavigationStore } from '@/stores/navigation-store';
 import { useUIStore } from '@/stores/ui-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTelegram } from '@/hooks/use-telegram';
+import ChatWidget from '@/components/chat/ChatWidget';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 
@@ -180,6 +181,10 @@ export default function App() {
 
       {/* Footer only on non-dashboard, non-auth, non-telegram pages */}
       {showFooter && <Footer />}
+
+      {/* Live Chat Widget — floating button at bottom-right */}
+      {/* Hidden inside Telegram WebApp (users use Telegram's native chat instead) */}
+      {!telegram.isTelegram && <ChatWidget />}
     </div>
   );
 }

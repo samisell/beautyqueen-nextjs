@@ -686,3 +686,53 @@ Stage Summary:
 - Login page has "Continue with Telegram" CTA for normal browser users
 - Bot mini-service with setup script, webhook support, and 4 bot commands
 - All code follows existing project patterns (rate limiting, JWT cookies, error handling, TypeScript types)
+
+---
+Task ID: 2
+Agent: Main Orchestrator
+Task: Implement full live chat system with Telegram support bot integration
+
+Work Log:
+- Updated Prisma schema (main): added ChatMessage model with sessionId, userId, sender, message, senderName, senderEmail, isAdminRead, isUserRead, telegramMessageId, createdAt fields + 4 indexes
+- Created `mini-services/chat-service/` — standalone chat service on port 3011:
+  - `package.json` — Bun project with @prisma/client + prisma dependencies
+  - `prisma/schema.prisma` — SQLite provider, ChatMessage model only (shares same DATABASE_URL)
+  - `index.ts` — Full-featured chat server:
+    - WebSocket server for real-time web client connections (Bun native WebSocket)
+    - HTTP endpoints: /health, /history (GET), /unread (GET), /read (POST), /telegram-webhook (POST), /set-webhook (POST), /webhook-info (GET)
+    - Telegram Bot API integration: forwards user messages to admin with formatted headers (name, email, session ID)
+    - Reply routing: admin replies via Telegram's native "reply" feature are routed to the correct user session using telegramMessageId mapping; messages without reply context go to last active session
+    - Admin online status tracking: admin considered "online" for 10 minutes after last reply
+    - Message persistence in SQLite via Prisma
+    - HTML-escaped user messages for Telegram safety
+  - `setup.ts` — Bot setup script: verifies token, sets description, sends test message, provides webhook setup instructions
+- Created `src/components/chat/ChatWidget.tsx` — production-quality floating chat widget:
+  - Floating gradient button (bottom-right) with animated open/close icon toggle
+  - Unread message badge (red, with 99+ cap) on floating button when chat is closed
+  - Expandable chat panel with spring animations (framer-motion)
+  - Header with gradient background, online/away status indicator, minimize and close buttons
+  - Message list with proper alignment (user right/primary, admin left/card), timestamps, support team label
+  - Welcome screen with icon when no messages
+  - Input area with Enter-to-send, 2000 char limit, disabled state when disconnected
+  - WebSocket connection with auto-reconnect (3s delay on disconnect)
+  - Session persistence via localStorage (chat history survives page reloads)
+  - Unread count polling when chat is closed
+  - Auto-mark admin messages as read when chat is open
+  - Connection status indicator (connecting/reconnecting states)
+  - Hidden inside Telegram WebApp mode (users use native Telegram chat)
+  - Responsive: full-width on mobile, 380px on desktop
+- Updated `src/app/page.tsx` — imported and rendered ChatWidget (hidden inside Telegram WebApp)
+- Updated `.env` — added TELEGRAM_SUPPORT_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID with setup instructions
+- Created ChatMessage table in SQLite database via raw SQL (chat service Prisma schema)
+- Installed chat service dependencies, generated Prisma client
+- Zero ESLint errors, dev server compiles clean, chat service starts successfully
+
+Stage Summary:
+- Full live chat system with real-time WebSocket messaging between web users and admin
+- Admin receives and replies to support messages directly in Telegram
+- Smart reply routing: admin can reply to specific messages (Telegram native reply) or send to last active user
+- Message persistence — full chat history loaded on widget open
+- Floating chat widget with unread badge, online status, minimize, responsive design
+- Separate support bot from auth bot (independent tokens, independent configuration)
+- No impact on existing auth, pages, or features — completely additive
+- All code follows existing project patterns (error handling, TypeScript strict, shadcn styling)

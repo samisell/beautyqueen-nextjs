@@ -417,6 +417,29 @@ model ContactMessage {
   @@index([createdAt])
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Live Chat Support — Messages between web users and admin via Telegram
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ChatMessage {
+  id                String   @id @default(cuid())
+  sessionId         String                      // Anonymous or user-linked chat session
+  userId            String?                     // Linked to User if logged in
+  sender            String                      // "user" or "admin"
+  message           String   @db.Text           // Message content
+  senderName        String?                     // Display name of sender
+  senderEmail       String?                     // Email of sender (for admin context)
+  isAdminRead       Boolean  @default(false)    // Admin has seen this message
+  isUserRead        Boolean  @default(false)    // User has seen this message
+  telegramMessageId Int?                        // Maps to Telegram msg ID for reply routing
+  createdAt         DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([telegramMessageId])
+  @@index([createdAt])
+}
+
 model SupportTicket {
   id          String   @id @default(cuid())
   ticketId    String   @unique
