@@ -51,28 +51,28 @@ const features = [
     icon: Shield,
     title: 'Fair & Transparent Voting',
     desc: 'Every vote is verified and counted accurately with blockchain-inspired auditability. No manipulation, no doubt.',
-    image: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=400&h=300&fit=crop',
+    image: '/cleopas-monbest-LtJMm2rIopY-unsplash.jpg',
     gradient: 'from-blue-500 to-cyan-500',
   },
   {
     icon: BarChart3,
     title: 'Real-time Leaderboard',
     desc: 'Watch rankings update live as votes come in. Feel the excitement of the competition as it unfolds.',
-    image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=300&fit=crop',
+    image: '/cleopas-monbest-FPfSFs5_tvM-unsplash.jpg',
     gradient: 'from-purple-500 to-pink-500',
   },
   {
     icon: Lock,
     title: 'Secure Payments',
     desc: 'Industry-standard encryption protects every transaction. Your financial data is always safe with us.',
-    image: 'https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&h=300&fit=crop',
+    image: '/lera-kogan-B4v-mppq4yc-unsplash.jpg',
     gradient: 'from-green-500 to-emerald-500',
   },
   {
     icon: Gift,
     title: 'Amazing Prizes',
     desc: 'Winners take home incredible prizes including cash awards, brand partnerships, and exclusive opportunities.',
-    image: 'https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=400&h=300&fit=crop',
+    image: '/beautiful-african-woman-monochrome-portrait.jpg',
     gradient: 'from-amber-500 to-orange-500',
   },
 ];
@@ -82,21 +82,21 @@ const testimonials = [
     name: 'Sarah Johnson',
     role: 'Competition Winner 2024',
     quote: 'BeautyVote changed my life! The entire experience was so professional and exciting. I felt like a true queen throughout the competition.',
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop',
+    image: '/beautiful-african-woman-with-big-curly-afro-flowers-her-hair.jpg',
     rating: 5,
   },
   {
     name: 'Maria Chen',
     role: 'Active Voter & Supporter',
     quote: "I love how transparent the voting process is. I can see real-time updates and I know my vote truly counts. It's such a fun community!",
-    image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop',
+    image: '/black-woman-with-ideal-skin-short-haircut-grey.jpg',
     rating: 5,
   },
   {
     name: 'Amara Okafor',
     role: 'Brand Partner & Sponsor',
     quote: "Partnering with BeautyVote has been incredible. The engagement and reach we get through this platform is unmatched in the industry.",
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop',
+    image: '/portrait-attractive-african-american-female-with-beautiful-makeup-posing-with-her-eyes-closed.jpg',
     rating: 5,
   },
 ];
@@ -168,21 +168,21 @@ export default function HomePage() {
       title: 'Register',
       desc: 'Create your free account in seconds and start participating in the competition.',
       color: 'from-orange-500 to-amber-500',
-      image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=300&h=200&fit=crop',
+      image: '/cleopas-monbest-fMwDeDI_ykE-unsplash.jpg',
     },
     {
       icon: Heart,
       title: 'Vote',
       desc: 'Browse contestants, pick your favorites, and cast your votes to support them.',
       color: 'from-rose-500 to-pink-500',
-      image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=300&h=200&fit=crop',
+      image: '/portrait-medieval-queen-with-crown-her-head (3).jpg',
     },
     {
       icon: Trophy,
       title: 'Win',
       desc: 'Top contestants win amazing prizes. The queen with the most votes claims the crown!',
       color: 'from-amber-500 to-yellow-500',
-      image: 'https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=300&h=200&fit=crop',
+      image: '/portrait-medieval-queen-with-crown-her-head.jpg',
     },
   ];
 
@@ -289,8 +289,8 @@ export default function HomePage() {
             >
               <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-primary/20">
                 <img
-                  src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1200&h=800&fit=crop"
-                  alt="Beauty pageant contestant on stage"
+                  src="/portrait-medieval-queen-with-crown-her-head (2).jpg"
+                  alt="Beauty Queen Contestant"
                   className="w-full h-[480px] object-cover"
                 />
                 {/* Gradient overlay at bottom */}
@@ -365,7 +365,7 @@ export default function HomePage() {
         {/* Decorative background image */}
         <div className="absolute inset-0 -z-0">
           <img
-            src="https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&h=600&fit=crop"
+            src="/portrait-medieval-queen-with-crown-her-head (1).jpg"
             alt=""
             className="w-full h-full object-cover opacity-[0.04]"
             aria-hidden="true"
@@ -575,7 +575,7 @@ export default function HomePage() {
                     {/* Background decorative image */}
                     <div className="absolute inset-0">
                       <img
-                        src="https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=800&h=600&fit=crop"
+                        src="/cleopas-monbest-LtJMm2rIopY-unsplash.jpg"
                         alt=""
                         loading="lazy"
                         className="w-full h-full object-cover opacity-10"

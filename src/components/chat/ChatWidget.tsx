@@ -52,7 +52,7 @@ export default function ChatWidget() {
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const user = useAuthStore((s) => s.user);
 
   // ── Get or create session ID ──
@@ -185,11 +185,11 @@ export default function ChatWidget() {
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         setIsConnected(false);
         setIsConnecting(false);
         wsRef.current = null;
-        console.log('[Chat] WebSocket disconnected');
+        console.log('[Chat] WebSocket disconnected', event.code, event.reason);
 
         // Auto-reconnect after 3 seconds
         reconnectTimeoutRef.current = setTimeout(() => {

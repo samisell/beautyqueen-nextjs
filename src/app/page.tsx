@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigationStore } from '@/stores/navigation-store';
 import { useUIStore } from '@/stores/ui-store';
@@ -47,6 +47,7 @@ const dashboardPages: PageRoute[] = [
   'dashboard-notifications',
   'admin',
   'public-vote',
+  'support',
 ];
 
 function PageRenderer() {
@@ -152,9 +153,31 @@ export default function App() {
         {/* Show a loading state while Telegram auto-auth is in progress */}
         {telegram.isTelegram && telegram.isInited && !isAuthenticated ? (
           <div className="min-h-[60vh] flex items-center justify-center">
-            <div className="text-center space-y-4">
-              <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
-              <p className="text-muted-foreground text-sm">Signing in via Telegram...</p>
+            <div className="text-center space-y-6 max-w-sm px-4">
+              {telegram.error ? (
+                <>
+                  <div className="w-16 h-16 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto text-2xl animate-bounce">
+                    ⚠️
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold text-foreground">Sign In Failed</h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      {telegram.error}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => telegram.loginWithTelegram()}
+                    className="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/95 text-sm font-medium transition-colors cursor-pointer shadow-md inline-block"
+                  >
+                    Try Again
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+                  <p className="text-muted-foreground text-sm font-medium">Signing in via Telegram...</p>
+                </>
+              )}
             </div>
           </div>
         ) : (

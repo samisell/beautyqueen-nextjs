@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { db, withTransaction } from '@/lib/db';
 import { success, error, getClientIp, rateLimit } from '@/lib/api-helpers';
-import { verifyPayment } from '@/lib/payment-gateways';
+import { verifyPayment, type PaymentMethod } from '@/lib/payment-gateways';
 import { sendPaymentSuccessfulEmail } from '@/lib/email';
 
 /**
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     // ────────────────────────────────────────────
     // VERIFY WITH PAYMENT GATEWAY
     // ────────────────────────────────────────────
-    const paymentMethod = payment.paymentMethod as 'flutterwave' | 'paystack';
+    const paymentMethod = payment.paymentMethod as PaymentMethod;
     const isProduction = process.env.NODE_ENV === 'production';
 
     // In production, we MUST verify with the gateway
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
         return error('Invalid payment method for verification', 400);
       }
 
-      const result = await verifyPayment({ reference, paymentMethod });
+      const result = await verifyPayment({ reference, paymentMethod: paymentMethod as 'flutterwave' | 'paystack' });
 
       if (!result.success) {
         if (result.status === 'pending') {

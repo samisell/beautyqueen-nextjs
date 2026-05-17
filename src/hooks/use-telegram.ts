@@ -64,17 +64,56 @@ export interface TelegramContext {
   } | null;
   startParam: string | null;
   loginWithTelegram: () => Promise<boolean>;
+  error: string | null;
 }
 
 export function useTelegram(): TelegramContext {
   const [isReady, setIsReady] = useState(false);
   const [isInited, setIsInited] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const loginAttemptedRef = useRef(false);
   const { isAuthenticated } = useAuthStore();
   const { navigate } = useNavigationStore();
 
-  const isTelegram = typeof window !== 'undefined' && !!window.Telegram?.WebApp;
-  const webApp = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
+  const [isTelegram, setIsTelegram] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !!window.Telegram?.WebApp || /telegram/i.test(navigator.userAgent);
+  });
+  const [webApp, setWebApp] = useState<any>(null);
+
+  // Check for Telegram WebApp availability dynamically (handles async script loading)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const detectTelegram = () => {
+      if (window.Telegram?.WebApp) {
+        setIsTelegram(true);
+        setWebApp(window.Telegram.WebApp);
+        return true;
+      }
+      return false;
+    };
+
+    // Try immediately
+    if (detectTelegram()) return;
+
+    // Poll every 50ms for up to 3 seconds to catch the script load event
+    const poll = setInterval(() => {
+      if (detectTelegram()) {
+        clearInterval(poll);
+      }
+    }, 50);
+
+    const timeout = setTimeout(() => {
+      clearInterval(poll);
+    }, 3000);
+
+    return () => {
+      clearInterval(poll);
+      clearTimeout(timeout);
+    };
+  }, []);
+
   const initData = webApp?.initData || '';
   const user = webApp?.initDataUnsafe?.user || null;
   const startParam = webApp?.initDataUnsafe?.start_param || null;
@@ -104,6 +143,7 @@ export function useTelegram(): TelegramContext {
   // Auto-authenticate when inside Telegram (if not already logged in)
   const loginWithTelegram = useCallback(async (): Promise<boolean> => {
     if (!initData) return false;
+    setError(null);
 
     try {
       const res = await fetch('/api/auth/telegram', {
@@ -115,6 +155,7 @@ export function useTelegram(): TelegramContext {
       const result = await res.json();
 
       if (result.success && result.data) {
+        setError(null);
         useAuthStore.getState().login(result.data.user, result.data.token);
 
         // Navigate based on start_param or to dashboard
@@ -133,8 +174,10 @@ export function useTelegram(): TelegramContext {
         return true;
       }
 
+      setError(result.error || 'Telegram login validation failed.');
       return false;
-    } catch {
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred during sign in.');
       return false;
     }
   }, [initData, startParam, navigate]);
@@ -162,5 +205,6 @@ export function useTelegram(): TelegramContext {
     user,
     startParam,
     loginWithTelegram,
+    error,
   };
 }

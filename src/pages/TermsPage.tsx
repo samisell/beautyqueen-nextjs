@@ -336,7 +336,7 @@ export default function TermsPage() {
       <section className="relative overflow-hidden py-16 sm:py-20">
         <div className="absolute inset-0 -z-10">
           <img
-            src="https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1920&h=600&fit=crop"
+            src="/cleopas-monbest-LtJMm2rIopY-unsplash.jpg"
             alt="Legal terms"
             className="w-full h-full object-cover"
             loading="lazy"

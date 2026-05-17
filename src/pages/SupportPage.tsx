@@ -423,7 +423,7 @@ export default function SupportPage() {
       <section className="relative overflow-hidden py-16 sm:py-20">
         <div className="absolute inset-0 -z-10">
           <img
-            src="https://images.unsplash.com/photo-1556761175-4b46a572b786?w=1920&h=600&fit=crop"
+            src="/cleopas-monbest-FPfSFs5_tvM-unsplash.jpg"
             alt="Customer support"
             className="w-full h-full object-cover"
             loading="lazy"

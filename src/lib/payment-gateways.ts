@@ -7,8 +7,11 @@
  * - FLUTTERWAVE_PUBLIC_KEY
  * - PAYSTACK_SECRET_KEY
  * - PAYSTACK_PUBLIC_KEY
+ * - ENABLE_FLUTTERWAVE (true/false, default: true)
+ * - ENABLE_PAYSTACK (true/false, default: true)
  *
  * For development/demo, these fallback to test keys or mock mode.
+ * Set ENABLE_* to false to temporarily disable a gateway during downtime.
  */
 
 import { db } from '@/lib/db';
@@ -27,13 +30,13 @@ export const paymentConfig = {
     publicKey: FLUTTERWAVE_PUBLIC_KEY,
     secretKey: FLUTTERWAVE_SECRET_KEY,
     baseUrl: 'https://api.flutterwave.com/v3',
-    isConfigured: !!FLUTTERWAVE_PUBLIC_KEY && !!FLUTTERWAVE_SECRET_KEY,
+    isConfigured: !!FLUTTERWAVE_PUBLIC_KEY && !!FLUTTERWAVE_SECRET_KEY && process.env.ENABLE_FLUTTERWAVE !== 'false',
   },
   paystack: {
     publicKey: PAYSTACK_PUBLIC_KEY,
     secretKey: PAYSTACK_SECRET_KEY,
     baseUrl: 'https://api.paystack.co',
-    isConfigured: !!PAYSTACK_SECRET_KEY && !!PAYSTACK_PUBLIC_KEY,
+    isConfigured: !!PAYSTACK_SECRET_KEY && !!PAYSTACK_PUBLIC_KEY && process.env.ENABLE_PAYSTACK !== 'false',
   },
   offline: {
     bankName: process.env.OFFLINE_BANK_NAME || 'BeautyVote Holdings',

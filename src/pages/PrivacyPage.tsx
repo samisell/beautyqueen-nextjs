@@ -387,7 +387,7 @@ export default function PrivacyPage() {
       <section className="relative overflow-hidden py-16 sm:py-20">
         <div className="absolute inset-0 -z-10">
           <img
-            src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=1920&h=600&fit=crop"
+            src="/black-woman-with-ideal-skin-short-haircut-grey.jpg"
             alt="Data security"
             className="w-full h-full object-cover"
             loading="lazy"

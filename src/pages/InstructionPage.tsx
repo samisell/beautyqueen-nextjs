@@ -305,7 +305,7 @@ export default function InstructionPage() {
               className="hidden lg:block w-80 h-64 rounded-3xl overflow-hidden shadow-2xl"
             >
               <img
-                src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&h=500&fit=crop"
+                src="/portrait-medieval-queen-with-crown-her-head (1).jpg"
                 alt="Guide and books"
                 className="w-full h-full object-cover"
                 loading="lazy"
@@ -425,7 +425,7 @@ export default function InstructionPage() {
             >
               <div className="rounded-3xl overflow-hidden shadow-2xl">
                 <img
-                  src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&h=500&fit=crop"
+                  src="/portrait-medieval-queen-with-crown-her-head (2).jpg"
                   alt="Crowd voting"
                   className="w-full h-auto"
                   loading="lazy"
@@ -540,7 +540,7 @@ export default function InstructionPage() {
             >
               <div className="rounded-3xl overflow-hidden shadow-2xl">
                 <img
-                  src="https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=500&fit=crop"
+                  src="/portrait-medieval-queen-with-crown-her-head (3).jpg"
                   alt="Beauty portrait"
                   className="w-full h-auto"
                   loading="lazy"
@@ -623,7 +623,7 @@ export default function InstructionPage() {
                 <div className="flex flex-col sm:flex-row items-center gap-6 p-6 sm:p-8">
                   <div className="w-48 h-32 rounded-2xl overflow-hidden shrink-0 hidden sm:block">
                     <img
-                      src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&h=300&fit=crop"
+                      src="/beautiful-african-woman-monochrome-portrait.jpg"
                       alt="Security"
                       className="w-full h-full object-cover"
                       loading="lazy"
@@ -656,7 +656,7 @@ export default function InstructionPage() {
               className="hidden lg:block w-72 h-72 rounded-3xl overflow-hidden shadow-2xl shrink-0"
             >
               <img
-                src="https://images.unsplash.com/photo-1521791136064-7986c2920216?w=800&h=500&fit=crop"
+                src="/beautiful-african-woman-with-big-curly-afro-flowers-her-hair.jpg"
                 alt="Handshake partnership"
                 className="w-full h-full object-cover"
                 loading="lazy"

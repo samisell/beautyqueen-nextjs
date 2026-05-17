@@ -1,9 +1,18 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type User } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const db = new PrismaClient();
 
 async function main() {
   console.log('Seeding database...');
+
+  // Check if database is already seeded
+  const userCount = await db.user.count();
+  if (userCount > 0) {
+    console.log('Database already has users. Skipping seed to prevent duplicate entries.');
+    return;
+  }
+
 
   // Create categories
   const categories = await Promise.all([
@@ -30,7 +39,7 @@ async function main() {
   ]);
 
   // Create admin user
-  const adminPassword = await import('bcryptjs').then(b => b.default.hash('Admin@123', 12));
+  const adminPassword = await bcrypt.hash('Admin@123', 12);
   const admin = await db.user.upsert({
     where: { email: 'admin@beautyvote.com' },
     update: {},
@@ -45,9 +54,9 @@ async function main() {
   });
 
   // Create test users
-  const testUsers = [];
+  const testUsers: User[] = [];
   for (let i = 1; i <= 5; i++) {
-    const pwd = await import('bcryptjs').then(b => b.default.hash(`User${i}@123`, 12));
+    const pwd = await bcrypt.hash(`User${i}@123`, 12);
     const user = await db.user.upsert({
       where: { email: `user${i}@test.com` },
       update: {},
@@ -179,7 +188,7 @@ async function main() {
     db.platformSetting.upsert({
       where: { key: 'platformName' },
       update: {},
-      create: { key: 'platformName', value: 'Beauty Vote' },
+      create: { key: 'platformName', value: 'Beauty Queen' },
     }),
   ]);
 

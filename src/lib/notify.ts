@@ -28,6 +28,11 @@ export async function createNotification({
   type,
   emailContent,
 }: CreateNotificationParams) {
+  if (!userId || typeof userId !== 'string' || !title || typeof title !== 'string' || !message || typeof message !== 'string') {
+    console.error('[Notify] Invalid notification payload:', { userId, title, message, type, emailContent });
+    return;
+  }
+
   try {
     await db.notification.create({
       data: {

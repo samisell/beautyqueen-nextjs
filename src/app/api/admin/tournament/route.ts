@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { name, description, startDate, endDate, status, order, maxContestants } = body;
+    let { tournamentId } = body;
 
     // Validate required fields
     if (!name || typeof name !== 'string' || name.trim().length < 1) {
@@ -37,14 +38,26 @@ export async function POST(request: NextRequest) {
       return error('Invalid status. Must be one of: upcoming, active, completed', 400);
     }
 
+    if (!tournamentId) {
+      const activeTournament = await db.tournament.findFirst({
+        orderBy: { createdAt: 'desc' }
+      });
+      if (!activeTournament) {
+        return error('No active tournament found to attach this stage to', 400);
+      }
+      tournamentId = activeTournament.id;
+    }
+
     const stage = await db.tournamentStage.create({
       data: {
+        tournamentId,
         name: name.trim(),
         description: typeof description === 'string' ? description.trim() : null,
         startDate: start,
         endDate: end,
         status: status || 'upcoming',
         order: typeof order === 'number' ? order : 0,
+        minVotes: 0,
         maxContestants: typeof maxContestants === 'number' ? maxContestants : null,
       },
     });

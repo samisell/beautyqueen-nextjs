@@ -21,7 +21,7 @@
 //     active user session
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from './generated/client';
 
 const PORT = 3011;
 const SUPPORT_BOT_TOKEN = process.env.TELEGRAM_SUPPORT_BOT_TOKEN || '';

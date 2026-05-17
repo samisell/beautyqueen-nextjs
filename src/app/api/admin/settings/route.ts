@@ -6,10 +6,10 @@ import { success, error, requireAdmin } from '@/lib/api-helpers';
 const DEFAULTS: Record<string, string> = {
   votePrice: '200',
   currency: 'NGN',
-  platformName: 'Beauty Vote',
+  platformName: 'Beauty Queen',
   // Offline payment bank details
-  offlineBankName: 'BeautyVote Holdings',
-  offlineAccountName: 'BeautyVote Platform',
+  offlineBankName: 'Beauty Queen Holdings',
+  offlineAccountName: 'Beauty Queen Platform',
   offlineAccountNumber: '1234567890',
   offlineBankBranch: 'Main Branch',
   // Prize amounts (in the platform's currency)

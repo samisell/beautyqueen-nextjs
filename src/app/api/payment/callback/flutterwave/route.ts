@@ -85,18 +85,20 @@ export async function POST(request: NextRequest) {
             },
           });
 
-          const voteData = Array.from({ length: totalVotes }, () => ({
-            contestantId: payment.contestantId,
-            userId: payment.userId,
-            voteType: 'purchased' as const,
-            purchasedVoteId: purchasedVote.id,
-          }));
-          if (voteData.length > 0 && payment.contestantId) {
-            await tx.vote.createMany({ data: voteData });
-            await tx.contestant.update({
-              where: { id: payment.contestantId },
-              data: { totalVotes: { increment: totalVotes } },
-            });
+          if (payment.contestantId) {
+            const voteData = Array.from({ length: totalVotes }, () => ({
+              contestantId: payment.contestantId as string,
+              userId: payment.userId,
+              voteType: 'purchased' as const,
+              purchasedVoteId: purchasedVote.id,
+            }));
+            if (voteData.length > 0) {
+              await tx.vote.createMany({ data: voteData });
+              await tx.contestant.update({
+                where: { id: payment.contestantId },
+                data: { totalVotes: { increment: totalVotes } },
+              });
+            }
           }
 
           await tx.notification.create({

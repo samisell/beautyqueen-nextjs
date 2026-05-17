@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { success, error, parsePagination, getUserFromRequest } from '@/lib/api-helpers';
 

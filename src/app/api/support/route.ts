@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
     const status = searchParams.get('status');
 
-    const where: Record<string, unknown> = { userId: payload.id };
+    const where: Record<string, unknown> = { userId: payload.userId };
     if (status && ['open', 'in_progress', 'resolved', 'closed'].includes(status)) {
       where.status = status;
     }
@@ -210,7 +210,7 @@ export async function GET(request: NextRequest) {
     // Mark unread tickets as read
     if (tickets.some((t) => !t.isReadByUser)) {
       await db.supportTicket.updateMany({
-        where: { userId: payload.id, isReadByUser: false },
+        where: { userId: payload.userId, isReadByUser: false },
         data: { isReadByUser: true },
       });
     }

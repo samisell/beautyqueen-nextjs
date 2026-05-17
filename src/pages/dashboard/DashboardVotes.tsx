@@ -145,7 +145,7 @@ export default function DashboardVotes() {
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex gap-6">
+        <div className="flex flex-col lg:flex-row gap-6">
           <DashboardSidebar />
 
           <div className="flex-1 min-w-0 space-y-6">

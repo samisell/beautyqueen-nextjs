@@ -74,12 +74,17 @@ export default function Navbar() {
               onClick={() => handleNavClick('home')}
               className="flex items-center gap-2 group"
             >
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/25 group-hover:scale-105 transition-transform">
-                <Crown className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <img
+                src="/beautyqueenlogo.png"
+                alt="BeautyVote Logo"
+                className="w-10 h-10 object-contain rounded-xl group-hover:scale-105 transition-transform"
+                onError={(e) => {
+                  e.currentTarget.src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👑</text></svg>";
+                }}
+              />
               <div className="flex flex-col">
                 <span className="text-lg font-bold leading-tight gradient-text">
-                  BeautyVote
+                  Beauty Queen
                 </span>
                 <span className="text-[10px] text-muted-foreground leading-tight hidden sm:block">
                   Vote for Your Queen

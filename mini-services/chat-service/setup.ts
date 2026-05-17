@@ -17,6 +17,8 @@
 //   5. Run this script
 // ─────────────────────────────────────────────────────────────────────────────
 
+require('dotenv').config({ path: '.env' });
+
 const BOT_TOKEN = process.env.TELEGRAM_SUPPORT_BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
 

@@ -356,19 +356,23 @@ export default function Footer() {
                 {/* Logo */}
                 <div className="flex items-center gap-3 mb-5">
                   <div className="relative">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/25">
-                      <Crown className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="absolute -inset-1 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-600/20 blur-sm -z-10" />
+                    <img
+                      src="/beautyqueenlogo.png"
+                      alt="BeautyVote Logo"
+                      className="w-12 h-12 object-contain rounded-xl shadow-lg shadow-amber-500/10"
+                      onError={(e) => {
+                        e.currentTarget.src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👑</text></svg>";
+                      }}
+                    />
                   </div>
                   <div>
-                    <span className="text-xl font-extrabold tracking-tight text-white">BeautyVote</span>
-                    <p className="text-[10px] text-amber-400/80 font-medium -mt-0.5">Nigeria&apos;s #1 Beauty Platform</p>
+                    <span className="text-xl font-extrabold tracking-tight text-white">Beauty Queen</span>
+                    <p className="text-[10px] text-amber-400/80 font-medium -mt-0.5">Nigeria&apos;s #1 Beauty Queen Platform</p>
                   </div>
                 </div>
 
                 <p className="text-sm text-white/45 mb-6 max-w-xs leading-relaxed">
-                  The premier online beauty voting platform where your voice matters. Vote for your favorite contestants and help them win the crown!
+                  The premier online beauty queen platform where your voice matters. Vote for your favorite contestants and help them win the crown!
                 </p>
 
                 {/* Social Links */}
@@ -522,7 +526,7 @@ export default function Footer() {
               {/* Copyright */}
               <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
                 <p className="text-xs text-white/30">
-                  &copy; {currentYear} BeautyVote. All rights reserved.
+                  &copy; {currentYear} Beauty Queen. All rights reserved.
                 </p>
                 <div className="hidden sm:flex items-center gap-1.5">
                   <span className="text-white/10">&middot;</span>

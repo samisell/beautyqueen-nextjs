@@ -1501,7 +1501,7 @@ export default function AdminDashboard() {
     <TooltipProvider delayDuration={300}>
       <div className="min-h-screen">
         <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="flex gap-6">
+          <div className="flex flex-col lg:flex-row gap-6">
             <DashboardSidebar />
             <div className="flex-1 min-w-0 space-y-6">
               {/* Header */}

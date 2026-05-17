@@ -62,7 +62,7 @@ const prizeTiers = [
       'Feature in Magazine',
     ],
     gradient: 'linear-gradient(135deg, #fef3c7, #fbbf24, #f59e0b)',
-    image: 'https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=800&h=500&fit=crop',
+    image: '/portrait-medieval-queen-with-crown-her-head.jpg',
   },
   {
     rank: 2,
@@ -81,7 +81,7 @@ const prizeTiers = [
       'Social Media Feature',
     ],
     gradient: 'linear-gradient(135deg, #f3f4f6, #d1d5db, #9ca3af)',
-    image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&h=600&fit=crop',
+    image: '/beautiful-african-woman-monochrome-portrait.jpg',
   },
   {
     rank: 3,
@@ -100,7 +100,7 @@ const prizeTiers = [
       'Social Media Shoutout',
     ],
     gradient: 'linear-gradient(135deg, #fed7aa, #fb923c, #ea580c)',
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800&h=600&fit=crop',
+    image: '/beautiful-african-woman-with-big-curly-afro-flowers-her-hair.jpg',
   },
 ];
 
@@ -110,28 +110,28 @@ const categoryPrizes = [
     icon: Camera,
     prize: '$500 + Professional Portfolio',
     color: 'from-pink-500 to-rose-500',
-    image: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=300&fit=crop',
+    image: '/cleopas-monbest-fMwDeDI_ykE-unsplash.jpg',
   },
   {
     category: 'Miss Talent',
     icon: Music,
     prize: '$500 + Recording Session',
     color: 'from-violet-500 to-purple-500',
-    image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=300&fit=crop',
+    image: '/cleopas-monbest-LtJMm2rIopY-unsplash.jpg',
   },
   {
     category: 'Miss Popularity',
     icon: Star,
     prize: '$500 + Social Media Package',
     color: 'from-cyan-500 to-blue-500',
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=300&fit=crop',
+    image: '/black-woman-with-ideal-skin-short-haircut-grey.jpg',
   },
   {
     category: 'People\'s Choice',
     icon: Heart,
     prize: '$300 + Gift Hamper',
     color: 'from-rose-500 to-pink-500',
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=300&fit=crop',
+    image: '/lera-kogan-B4v-mppq4yc-unsplash.jpg',
   },
 ];
 
@@ -140,25 +140,25 @@ const awardSteps = [
     step: 1,
     title: 'Voting Closes',
     desc: 'All voting concludes at the end of the final tournament stage. No more votes can be cast.',
-    image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=300&fit=crop',
+    image: '/cleopas-monbest-FPfSFs5_tvM-unsplash.jpg',
   },
   {
     step: 2,
     title: 'Results Verification',
     desc: 'Our team verifies all votes to ensure fairness and accuracy. Fraudulent votes are removed.',
-    image: 'https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=400&h=300&fit=crop',
+    image: '/lera-kogan-B4v-mppq4yc-unsplash.jpg',
   },
   {
     step: 3,
     title: 'Winners Announced',
     desc: 'The final leaderboard is published and winners are announced across all our platforms.',
-    image: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=400&h=300&fit=crop',
+    image: '/cleopas-monbest-LtJMm2rIopY-unsplash.jpg',
   },
   {
     step: 4,
     title: 'Prize Distribution',
     desc: 'Winners are contacted for verification, and prizes are distributed within 7 business days.',
-    image: 'https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=400&h=300&fit=crop',
+    image: '/portrait-attractive-african-american-female-with-beautiful-makeup-posing-with-her-eyes-closed.jpg',
   },
 ];
 
@@ -167,25 +167,25 @@ const pastWinners = [
     name: 'Adaeze Okonkwo',
     title: 'Season 1 Winner',
     quote: 'BeautyVote changed my life! Winning the grand prize opened so many doors for my modeling career.',
-    image: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=400&fit=crop',
+    image: '/beautiful-african-woman-with-big-curly-afro-flowers-her-hair.jpg',
   },
   {
     name: 'Chidinma Eze',
     title: 'Season 2 Winner',
     quote: 'The competition was tough but fair. I\'m grateful for the platform and the amazing prizes.',
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop',
+    image: '/black-woman-with-ideal-skin-short-haircut-grey.jpg',
   },
   {
     name: 'Funke Adeyemi',
     title: 'Season 3 Winner',
     quote: 'From contestant to brand ambassador — BeautyVote gave me the exposure I always dreamed of.',
-    image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop',
+    image: '/portrait-attractive-african-american-female-with-beautiful-makeup-posing-with-her-eyes-closed.jpg',
   },
   {
     name: 'Blessing Udo',
     title: 'Season 4 Winner',
     quote: 'The experience was incredible. The support from voters made me feel like a true queen.',
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop',
+    image: '/beautiful-african-woman-monochrome-portrait.jpg',
   },
 ];
 
@@ -353,8 +353,8 @@ export default function PrizePage() {
                   transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
                 >
                   <img
-                    src="https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=800&h=500&fit=crop"
-                    alt="Trophy"
+                    src="/portrait-medieval-queen-with-crown-her-head (1).jpg"
+                    alt="Beauty Queen Crown"
                     className="w-full rounded-3xl shadow-2xl"
                     loading="lazy"
                   />
@@ -734,7 +734,7 @@ export default function PrizePage() {
                 <div className="flex flex-col md:flex-row">
                   <div className="md:w-2/5 shrink-0">
                     <img
-                      src="https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=800&h=600&fit=crop"
+                      src="/cleopas-monbest-LtJMm2rIopY-unsplash.jpg"
                       alt="Winner celebration"
                       className="w-full h-64 md:h-full object-cover"
                       loading="lazy"
@@ -762,7 +762,7 @@ export default function PrizePage() {
                     <div className="flex items-center gap-3 mt-6 pt-6 border-t">
                       <div className="w-12 h-12 rounded-full overflow-hidden">
                         <img
-                          src="https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100&h=100&fit=crop"
+                          src="/beautiful-african-woman-with-big-curly-afro-flowers-her-hair.jpg"
                           alt="Adaeze Okonkwo"
                           className="w-full h-full object-cover"
                           loading="lazy"

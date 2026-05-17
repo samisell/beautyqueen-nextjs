@@ -25,9 +25,9 @@ export async function GET(request: NextRequest) {
       return error('Reference is required');
     }
 
-    const validMethods: PaymentMethod[] = ['flutterwave', 'paystack'];
-    const method = validMethods.includes(methodInput as PaymentMethod)
-      ? (methodInput as PaymentMethod)
+    const validMethods: ('flutterwave' | 'paystack')[] = ['flutterwave', 'paystack'];
+    const method = validMethods.includes(methodInput as any)
+      ? (methodInput as 'flutterwave' | 'paystack')
       : null;
 
     if (!method) {

@@ -130,8 +130,8 @@ export default function DashboardSidebar() {
   }, [token]);
 
   return (
-    <aside className="w-full lg:w-64 shrink-0">
-      <nav className="space-y-1">
+    <aside className="w-full lg:w-64 shrink-0 border-b border-border/10 pb-4 lg:pb-0 lg:border-b-0">
+      <nav className="flex flex-row lg:flex-col overflow-x-auto lg:overflow-x-visible pb-2 lg:pb-0 gap-2 lg:gap-1 no-scrollbar shrink-0">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentPage === item.page;
@@ -139,9 +139,9 @@ export default function DashboardSidebar() {
           return (
             <button
               key={item.label}
-              onClick={() => navigate(item.page)}
+              onClick={() => navigate(item.page as any)}
               className={cn(
-                'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all',
+                'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all shrink-0 cursor-pointer',
                 isActive
                   ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'

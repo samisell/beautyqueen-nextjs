@@ -154,7 +154,7 @@ const videoTutorials = [
     description: 'Learn how to navigate the leaderboard and cast your first vote step by step.',
     icon: Vote,
     color: 'from-orange-500 to-amber-500',
-    image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&h=400&fit=crop',
+    image: '/cleopas-monbest-fMwDeDI_ykE-unsplash.jpg',
     duration: '3:45',
   },
   {
@@ -162,7 +162,7 @@ const videoTutorials = [
     description: 'Complete guide to joining a tournament, uploading photos, and submitting your profile.',
     icon: Users,
     color: 'from-pink-500 to-rose-500',
-    image: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=600&h=400&fit=crop',
+    image: '/lera-kogan-B4v-mppq4yc-unsplash.jpg',
     duration: '5:20',
   },
   {
@@ -170,7 +170,7 @@ const videoTutorials = [
     description: 'Understanding payment methods, vote packages, and how to complete your purchase.',
     icon: CreditCard,
     color: 'from-green-500 to-emerald-500',
-    image: 'https://images.unsplash.com/photo-1556761175-4b46a572b786?w=600&h=400&fit=crop',
+    image: '/portrait-attractive-african-american-female-with-beautiful-makeup-posing-with-her-eyes-closed.jpg',
     duration: '4:10',
   },
 ];
@@ -236,7 +236,7 @@ export default function FaqPage() {
               className="hidden lg:block w-72 h-56 rounded-3xl overflow-hidden shadow-2xl"
             >
               <img
-                src="https://images.unsplash.com/photo-1556761175-4b46a572b786?w=800&h=500&fit=crop"
+                src="/portrait-medieval-queen-with-crown-her-head.jpg"
                 alt="Help desk"
                 className="w-full h-full object-cover"
                 loading="lazy"

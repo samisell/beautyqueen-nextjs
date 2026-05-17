@@ -12,6 +12,8 @@
 // Port: 3010
 // ─────────────────────────────────────────────────────────────────────────────
 
+require('dotenv').config({ path: '.env' });
+
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL || 'https://beautyvote.app';
 const PORT = 3010;

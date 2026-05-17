@@ -83,7 +83,7 @@ const contactInfo = [
     detail: 'support@beautyvote.com',
     subDetail: 'We reply within 24 hours',
     color: 'from-blue-500 to-cyan-500',
-    image: 'https://images.unsplash.com/photo-1556761175-4b46a572b786?w=400&h=200&fit=crop',
+    image: '/beautiful-african-woman-monochrome-portrait.jpg',
   },
   {
     icon: Phone,
@@ -91,7 +91,7 @@ const contactInfo = [
     detail: '+234 800 123 4567',
     subDetail: 'Mon-Fri, 9am - 6pm WAT',
     color: 'from-green-500 to-emerald-500',
-    image: 'https://images.unsplash.com/photo-1553877522-43269d4ea984?w=400&h=200&fit=crop',
+    image: '/beautiful-african-woman-with-big-curly-afro-flowers-her-hair.jpg',
   },
   {
     icon: MapPin,
@@ -99,7 +99,7 @@ const contactInfo = [
     detail: 'Lagos, Nigeria',
     subDetail: 'Victoria Island, Lagos',
     color: 'from-purple-500 to-violet-500',
-    image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=200&fit=crop',
+    image: '/black-woman-with-ideal-skin-short-haircut-grey.jpg',
   },
 ];
 
@@ -333,7 +333,7 @@ export default function ContactPage() {
       <section className="relative overflow-hidden py-16 sm:py-20">
         <div className="absolute inset-0 -z-10">
           <img
-            src="https://images.unsplash.com/photo-1556761175-4b46a572b786?w=1920&h=600&fit=crop"
+            src="/cleopas-monbest-FPfSFs5_tvM-unsplash.jpg"
             alt="Customer support"
             className="w-full h-full object-cover"
             loading="lazy"
@@ -644,7 +644,7 @@ export default function ContactPage() {
               <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
                 <div className="h-48">
                   <img
-                    src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=500&fit=crop"
+                    src="/cleopas-monbest-LtJMm2rIopY-unsplash.jpg"
                     alt="Team meeting"
                     className="w-full h-full object-cover"
                     loading="lazy"
