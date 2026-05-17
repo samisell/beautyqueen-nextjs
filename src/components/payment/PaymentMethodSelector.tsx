@@ -93,7 +93,7 @@ const fadeInUp = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.06, duration: 0.4, ease: 'easeOut' },
+    transition: { delay: i * 0.06, duration: 0.4, ease: 'easeOut' as any },
   }),
 };
 
@@ -359,14 +359,14 @@ export default function PaymentMethodSelector({
       async function verifyPayment() {
         setProcessing(true);
         try {
-          const res = await fetch(`/api/payment/verify?reference=${encodeURIComponent(reference)}&method=${method}`);
+          const res = await fetch(`/api/payment/verify?reference=${encodeURIComponent(reference || '')}&method=${encodeURIComponent(method || '')}`);
           const data = await res.json();
 
           if (data.success) {
             const result = data.data;
             setPaymentResult({
               success: result.status === 'completed',
-              reference,
+              reference: reference || undefined,
               message: result.message || (result.status === 'completed' ? 'Payment verified! Votes credited.' : 'Payment is still being processed.'),
               isDemo: true,
             });

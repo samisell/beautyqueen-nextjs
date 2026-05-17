@@ -157,8 +157,8 @@ export default function DashboardSidebar() {
               </div>
               <div className="flex flex-col items-start">
                 <span>{item.label}</span>
-                {item.sublabel && (
-                  <span className="text-[10px] opacity-70">{item.sublabel}</span>
+                {(item as any).sublabel && (
+                  <span className="text-[10px] opacity-70">{(item as any).sublabel}</span>
                 )}
               </div>
             </button>

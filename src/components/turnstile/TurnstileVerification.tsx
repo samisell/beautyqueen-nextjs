@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useTelegram } from '@/hooks/use-telegram';
+import { useAuthStore } from '@/stores/auth-store';
 
 export default function TurnstileVerification({ children }: { children: React.ReactNode }) {
   // Start with turnstileVerified = true by default to avoid initial hydration mismatch and layout blocking
   const [turnstileVerified, setTurnstileVerified] = useState(true);
   const [turnstileLoading, setTurnstileLoading] = useState(false);
-  const { isTelegram, isAuthenticated } = useTelegram();
+  const { isTelegram } = useTelegram();
+  const isAuthenticated = useAuthStore((s) => !!s.user);
 
   // Run validation client-side after component mounts
   useEffect(() => {
