@@ -51,7 +51,24 @@ const dashboardPages: PageRoute[] = [
 ];
 
 function PageRenderer() {
-  const { currentPage } = useNavigationStore();
+  const { currentPage, navigate } = useNavigationStore();
+  const { user, isAuthenticated } = useAuthStore();
+
+  useEffect(() => {
+    if (currentPage === 'admin' && (!isAuthenticated || user?.role !== 'admin')) {
+      navigate('home');
+    } else {
+      const isDashboardPage = [
+        'dashboard', 'dashboard-profile', 'dashboard-votes', 
+        'dashboard-purchases', 'dashboard-referrals', 
+        'dashboard-settings', 'dashboard-notifications'
+      ].includes(currentPage);
+      
+      if (isDashboardPage && !isAuthenticated) {
+        navigate('login');
+      }
+    }
+  }, [currentPage, isAuthenticated, user, navigate]);
 
   const pageMap: Record<PageRoute, React.ReactNode> = {
     home: <HomePage />,
@@ -79,6 +96,14 @@ function PageRenderer() {
     terms: <TermsPage />,
     privacy: <PrivacyPage />,
   };
+
+  if (currentPage === 'admin' && (!isAuthenticated || user?.role !== 'admin')) return null;
+  const isDashboardPage = [
+    'dashboard', 'dashboard-profile', 'dashboard-votes', 
+    'dashboard-purchases', 'dashboard-referrals', 
+    'dashboard-settings', 'dashboard-notifications'
+  ].includes(currentPage);
+  if (isDashboardPage && !isAuthenticated) return null;
 
   return pageMap[currentPage] || <HomePage />;
 }
@@ -122,9 +147,11 @@ export default function App() {
           if (data.success && data.data) {
             useAuthStore.getState().setUser(data.data);
           }
+        } else if (res.status === 401 || res.status === 403) {
+          useAuthStore.getState().logout();
         }
       } catch {
-        // Not authenticated
+        useAuthStore.getState().logout();
       }
     };
     checkAuth();
