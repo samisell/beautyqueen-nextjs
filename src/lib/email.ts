@@ -461,21 +461,21 @@ export async function sendEmail({ to, template, data, userId }: SendEmailOptions
 export async function sendWelcomeEmail(userId: string, name: string, email: string) {
   const tmpl = templates['welcome'];
   const { subject, html } = tmpl({ name });
-  createNotification(userId, subject, `Welcome to the platform! Your account has been created successfully.`, 'success', html).catch(() => {});
+  createNotification({ userId, title: subject, message: `Welcome to the platform! Your account has been created successfully.`, type: 'success', emailContent: html }).catch(() => {});
   return sendEmail({ to: email, template: 'welcome', data: { name }, userId });
 }
 
 export async function sendRegistrationEmail(userId: string, name: string, email: string, referralCode: string) {
   const tmpl = templates['registrationConfirmation'];
   const { subject, html } = tmpl({ name, email, referralCode });
-  createNotification(userId, subject, `Registration complete! Your referral code is ${referralCode}. Verify your email to unlock all features.`, 'success', html).catch(() => {});
+  createNotification({ userId, title: subject, message: `Registration complete! Your referral code is ${referralCode}. Verify your email to unlock all features.`, type: 'success', emailContent: html }).catch(() => {});
   return sendEmail({ to: email, template: 'registrationConfirmation', data: { name, email, referralCode }, userId });
 }
 
 export async function sendVerificationOTP(userId: string, name: string, email: string, otp: string) {
   const tmpl = templates['emailVerification'];
   const { subject, html } = tmpl({ name, otp });
-  createNotification(userId, subject, `Your email verification OTP is ${otp}. It expires in 10 minutes.`, 'info', html).catch(() => {});
+  createNotification({ userId, title: subject, message: `Your email verification OTP is ${otp}. It expires in 10 minutes.`, type: 'info', emailContent: html }).catch(() => {});
   return sendEmail({ to: email, template: 'emailVerification', data: { name, otp }, userId });
 }
 
@@ -483,14 +483,14 @@ export async function sendLoginNotification(userId: string, name: string, email:
   const time = new Date().toISOString();
   const tmpl = templates['loginNotification'];
   const { subject, html } = tmpl({ name, ip, time, location: 'Unknown' });
-  createNotification(userId, subject, `A new login was detected from IP ${ip} at ${time}. If this wasn't you, secure your account immediately.`, 'warning', html).catch(() => {});
+  createNotification({ userId, title: subject, message: `A new login was detected from IP ${ip} at ${time}. If this wasn't you, secure your account immediately.`, type: 'warning', emailContent: html }).catch(() => {});
   return sendEmail({ to: email, template: 'loginNotification', data: { name, ip, time, location: 'Unknown' }, userId });
 }
 
 export async function sendPlatformInstructions(userId: string, name: string, email: string) {
   const tmpl = templates['platformInstructions'];
   const { subject, html } = tmpl({ name });
-  createNotification(userId, subject, `Here's your complete guide on how to use the platform — voting, tournaments, and purchasing votes.`, 'info', html).catch(() => {});
+  createNotification({ userId, title: subject, message: `Here's your complete guide on how to use the platform — voting, tournaments, and purchasing votes.`, type: 'info', emailContent: html }).catch(() => {});
   return sendEmail({ to: email, template: 'platformInstructions', data: { name }, userId });
 }
 
@@ -504,7 +504,7 @@ export async function sendPaymentSuccessfulEmail(
 ) {
   const tmpl = templates['paymentSuccessful'];
   const { subject, html } = tmpl({ name, ...data });
-  createNotification(userId, subject, `Your payment of ${data.amount} for ${data.packageName} (${data.votes} votes) has been confirmed. Votes are now available!`, 'success', html).catch(() => {});
+  createNotification({ userId, title: subject, message: `Your payment of ${data.amount} for ${data.packageName} (${data.votes} votes) has been confirmed. Votes are now available!`, type: 'success', emailContent: html }).catch(() => {});
   return sendEmail({ to: email, template: 'paymentSuccessful', data: { name, ...data }, userId });
 }
 
@@ -514,7 +514,7 @@ export async function sendPaymentApprovedEmail(
 ) {
   const tmpl = templates['paymentApproved'];
   const { subject, html } = tmpl({ name, ...data });
-  createNotification(userId, subject, `Your offline payment of ${data.amount} for ${data.packageName} (${data.votes} votes) has been approved. Votes are now available!`, 'success', html).catch(() => {});
+  createNotification({ userId, title: subject, message: `Your offline payment of ${data.amount} for ${data.packageName} (${data.votes} votes) has been approved. Votes are now available!`, type: 'success', emailContent: html }).catch(() => {});
   return sendEmail({ to: email, template: 'paymentApproved', data: { name, ...data }, userId });
 }
 
@@ -524,7 +524,7 @@ export async function sendPaymentRejectedEmail(
 ) {
   const tmpl = templates['paymentRejected'];
   const { subject, html } = tmpl({ name, ...data });
-  createNotification(userId, subject, `Your payment of ${data.amount} for ${data.packageName} was not approved. Reason: ${data.reason}`, 'error', html).catch(() => {});
+  createNotification({ userId, title: subject, message: `Your payment of ${data.amount} for ${data.packageName} was not approved. Reason: ${data.reason}`, type: 'error', emailContent: html }).catch(() => {});
   return sendEmail({ to: email, template: 'paymentRejected', data: { name, ...data }, userId });
 }
 
@@ -534,7 +534,7 @@ export async function sendFraudWarningEmail(
 ) {
   const tmpl = templates['paymentFraudWarning'];
   const { subject, html } = tmpl({ name, ...data });
-  createNotification(userId, subject, `Fraudulent payment detected for ${data.packageName} (${data.amount}). ${data.votesRemoved} votes removed. Continued violations may lead to disqualification.`, 'error', html).catch(() => {});
+  createNotification({ userId, title: subject, message: `Fraudulent payment detected for ${data.packageName} (${data.amount}). ${data.votesRemoved} votes removed. Continued violations may lead to disqualification.`, type: 'error', emailContent: html }).catch(() => {});
   return sendEmail({ to: email, template: 'paymentFraudWarning', data: { name, ...data }, userId });
 }
 
@@ -544,6 +544,6 @@ export async function sendTournamentJoinedEmail(
 ) {
   const tmpl = templates['tournamentJoined'];
   const { subject, html } = tmpl({ name, ...data });
-  createNotification(userId, subject, `You have successfully joined ${data.tournamentName} (${data.stageName})! Share your profile to get more votes.`, 'success', html).catch(() => {});
+  createNotification({ userId, title: subject, message: `You have successfully joined ${data.tournamentName} (${data.stageName})! Share your profile to get more votes.`, type: 'success', emailContent: html }).catch(() => {});
   return sendEmail({ to: email, template: 'tournamentJoined', data: { name, ...data }, userId });
 }

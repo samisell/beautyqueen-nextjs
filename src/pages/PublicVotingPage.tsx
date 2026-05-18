@@ -112,7 +112,7 @@ const fadeInUp = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.08, duration: 0.4, ease: 'easeOut' },
+    transition: { delay: i * 0.08, duration: 0.4, ease: 'easeOut' as any },
   }),
 };
 
@@ -121,7 +121,7 @@ const scaleIn = {
   visible: {
     opacity: 1,
     scale: 1,
-    transition: { duration: 0.5, ease: 'easeOut' },
+    transition: { duration: 0.5, ease: 'easeOut' as any },
   },
 };
 
@@ -131,7 +131,7 @@ const checkmarkAnim = {
     opacity: 1,
     scale: 1,
     rotate: 0,
-    transition: { delay: 0.2, duration: 0.6, ease: 'easeOut' },
+    transition: { delay: 0.2, duration: 0.6, ease: 'easeOut' as any },
   },
 };
 

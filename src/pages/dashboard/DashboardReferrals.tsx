@@ -165,7 +165,7 @@ export default function DashboardReferrals() {
   ];
 
   const fullReferralUrl =
-    referralUrl || `${window.location.origin}/register?ref=${user?.referralCode || '...'}`;
+    referralUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/register?ref=${user?.referralCode || '...'}`;
 
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">

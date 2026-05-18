@@ -2530,7 +2530,7 @@ export default function AdminDashboard() {
                                     </TableCell>
                                     <TableCell>
                                       {p.proofImageUrl ? (
-                                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setProofImageUrl(p.proofImageUrl); setProofDialogOpen(true); }}>
+                                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setProofImageUrl(p.proofImageUrl || ''); setProofDialogOpen(true); }}>
                                           <ImageIcon className="w-3.5 h-3.5 mr-1" />View
                                         </Button>
                                       ) : (
@@ -3375,7 +3375,7 @@ export default function AdminDashboard() {
                   value={ratingForm.beautyRating}
                   onChange={(e) => {
                     const val = e.target.value;
-                    const task = tasks.find(t => t.submissions?.some);
+
                     setRatingForm((f) => ({ ...f, beautyRating: val, bonusVotes: Math.round(Number(val) * (tasks.find(t => t.id)?.maxBonusVotes || 10) / 10).toString() }));
                   }}
                   className="flex-1 accent-primary"

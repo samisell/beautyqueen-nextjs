@@ -75,10 +75,7 @@ export function useTelegram(): TelegramContext {
   const { isAuthenticated } = useAuthStore();
   const { navigate } = useNavigationStore();
 
-  const [isTelegram, setIsTelegram] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return !!window.Telegram?.WebApp || /telegram/i.test(navigator.userAgent);
-  });
+  const [isTelegram, setIsTelegram] = useState(false);
   const [webApp, setWebApp] = useState<any>(null);
 
   // Check for Telegram WebApp availability dynamically (handles async script loading)

@@ -38,10 +38,10 @@ export default function TurnstileVerification({ children }: { children: React.Re
     let timeoutId: NodeJS.Timeout | null = null;
 
     // Check if Turnstile is available
-    if (typeof window !== 'undefined' && window.turnstile) {
+    if (typeof window !== 'undefined' && (window as any).turnstile) {
       // Render Turnstile widget
       try {
-        window.turnstile.render('turnstile-container', {
+        (window as any).turnstile.render('#turnstile-container', {
           sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '',
           callback: (token) => {
             verifyTurnstileToken(token);
@@ -57,10 +57,10 @@ export default function TurnstileVerification({ children }: { children: React.Re
     } else {
       // Fallback if Turnstile script hasn't loaded yet
       intervalId = setInterval(() => {
-        if (typeof window !== 'undefined' && window.turnstile) {
+        if (typeof window !== 'undefined' && (window as any).turnstile) {
           if (intervalId) clearInterval(intervalId);
           try {
-            window.turnstile.render('turnstile-container', {
+            (window as any).turnstile.render('#turnstile-container', {
               sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '',
               callback: (token) => {
                 verifyTurnstileToken(token);

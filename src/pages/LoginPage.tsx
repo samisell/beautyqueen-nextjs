@@ -100,7 +100,7 @@ export default function LoginPage() {
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        transition={{ duration: 0.5, ease: 'easeOut' as any }}
         className="w-full max-w-md"
       >
         <Card className="border-0 shadow-2xl shadow-primary/5">

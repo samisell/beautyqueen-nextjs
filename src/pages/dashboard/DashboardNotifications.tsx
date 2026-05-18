@@ -356,7 +356,7 @@ export default function DashboardNotifications() {
                                 <div className="mt-3 pt-3 border-t border-border/50">
                                   <div
                                     className="max-h-[200px] overflow-y-auto rounded-lg bg-muted/80 border border-border/50 p-4 text-xs leading-relaxed text-muted-foreground [&_a]:text-primary [&_a]:underline [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-xs [&_h3]:font-semibold [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:mb-1 [&_table]:w-full [&_table]:text-[11px] [&_th]:text-left [&_th]:p-1.5 [&_th]:border-b [&_th]:font-medium [&_td]:p-1.5 [&_td]:border-b [&_img]:max-w-full [&_img]:rounded"
-                                    dangerouslySetInnerHTML={{ __html: notif.emailContent }}
+                                    dangerouslySetInnerHTML={{ __html: notif.emailContent || '' }}
                                   />
                                 </div>
                               </motion.div>

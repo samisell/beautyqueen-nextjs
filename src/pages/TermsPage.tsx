@@ -32,7 +32,7 @@ const fadeInUp = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.1, duration: 0.5, ease: 'easeOut' },
+    transition: { delay: i * 0.1, duration: 0.5, ease: 'easeOut' as any },
   }),
 };
 
@@ -392,7 +392,7 @@ export default function TermsPage() {
               >
                 <Card className="mt-3 shadow-lg rounded-2xl border-0 p-4">
                   <div className="space-y-1">
-                    {tocItems.map((item) => (
+                    {tocItems.map((item, index) => (
                       <button
                         key={item.id}
                         onClick={() => scrollToSection(item.id)}
@@ -403,7 +403,7 @@ export default function TermsPage() {
                         }`}
                       >
                         <item.icon className="w-4 h-4 shrink-0" />
-                        <span className="flex-1">{item.number}. {item.label}</span>
+                        <span className="flex-1">{index + 1}. {item.label}</span>
                       </button>
                     ))}
                   </div>
@@ -422,7 +422,7 @@ export default function TermsPage() {
                     Table of Contents
                   </h3>
                   <nav className="space-y-1">
-                    {tocItems.map((item) => (
+                    {tocItems.map((item, index) => (
                       <button
                         key={item.id}
                         onClick={() => scrollToSection(item.id)}
@@ -433,7 +433,7 @@ export default function TermsPage() {
                         }`}
                       >
                         <item.icon className="w-4 h-4 shrink-0" />
-                        <span className="flex-1">{item.number}. {item.label}</span>
+                        <span className="flex-1">{index + 1}. {item.label}</span>
                       </button>
                     ))}
                   </nav>

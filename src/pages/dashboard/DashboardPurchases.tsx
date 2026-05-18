@@ -105,7 +105,7 @@ const fadeInUp = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.06, duration: 0.4, ease: 'easeOut' },
+    transition: { delay: i * 0.06, duration: 0.4, ease: 'easeOut' as any },
   }),
 };
 
@@ -337,7 +337,7 @@ export default function DashboardPurchases() {
                               variant="ghost"
                               size="sm"
                               className="h-7 text-xs"
-                              onClick={() => viewProof(pp.proofImageUrl)}
+                              onClick={() => viewProof(pp.proofImageUrl || '')}
                             >
                               <ImageIcon className="w-3 h-3 mr-1" />
                               Proof
