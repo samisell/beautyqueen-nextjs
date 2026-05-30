@@ -136,21 +136,27 @@ export default function HomePage() {
         }
 
         if (tournamentData.success && tournamentData.data) {
-          setStages(tournamentData.data);
-          const active = tournamentData.data.find(
+          const tournament = tournamentData.data.tournament;
+          const nextStages = tournament?.stages || [];
+
+          setStages(nextStages);
+          const active = nextStages.find(
             (s: TournamentStage) => s.status === 'active'
           );
-          setActiveStage(active || tournamentData.data[0] || null);
+          setActiveStage(active || nextStages[0] || null);
 
-          const totalContestants = tournamentData.data.reduce(
+          const totalContestants = nextStages.reduce(
             (sum: number, s: TournamentStage) => sum + (s.contestantCount || 0),
             0
           );
 
           setStats({
             contestants: totalContestants,
-            stages: tournamentData.data.length,
-            votes: 1000 + Math.floor(Math.random() * 500),
+            stages: nextStages.length,
+            votes: featuredData.data.reduce(
+              (sum: number, contestant: Contestant) => sum + contestant.totalVotes,
+              0
+            ),
           });
         }
       } catch {

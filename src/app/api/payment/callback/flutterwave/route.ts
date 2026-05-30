@@ -135,7 +135,12 @@ export async function GET(request: NextRequest) {
     return new Response('Missing tx_ref parameter', { status: 400 });
   }
 
-  const redirectUrl = `${appUrl}/?payment_verify=1&reference=${encodeURIComponent(reference)}&method=flutterwave`;
+  const payment = await db.payment.findFirst({
+    where: { reference },
+    select: { contestantId: true },
+  });
+  const publicVoteParam = payment?.contestantId ? '&public_vote=1' : '';
+  const redirectUrl = `${appUrl}/?payment_verify=1${publicVoteParam}&reference=${encodeURIComponent(reference)}&method=flutterwave`;
   return new Response(null, {
     status: 302,
     headers: { Location: redirectUrl },

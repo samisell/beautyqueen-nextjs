@@ -1,7 +1,13 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { success, error, getClientIp, rateLimit } from '@/lib/api-helpers';
-import { generateReference, generateTransactionId } from '@/lib/payment-gateways';
+import {
+  generateReference,
+  generateTransactionId,
+  initializePayment,
+  paymentConfig,
+  type InitializePaymentResult,
+} from '@/lib/payment-gateways';
 import { randomUUID } from 'crypto';
 
 /**
@@ -96,8 +102,30 @@ export async function POST(request: NextRequest) {
 
     // Calculate total votes
     const totalVotes = votePackage.votes + votePackage.bonusVotes;
-    const reference = generateReference();
-    const transactionId = generateTransactionId();
+
+    const paymentMethod = 'paystack' as const;
+    const gatewayEnabled = paymentConfig.paystack.isConfigured;
+
+    const initResult: InitializePaymentResult = gatewayEnabled
+      ? await initializePayment({
+          email: payerEmail,
+          amount: votePackage.price,
+          packageId: votePackage.id,
+          userId: payerUserId,
+          paymentMethod,
+          packageName: `${votePackage.name} for ${contestant.name}`,
+        })
+      : {
+          success: true,
+          paymentUrl: undefined,
+          reference: generateReference(),
+          transactionId: generateTransactionId(),
+          message: 'Demo mode: payment verification will be completed locally.',
+        };
+
+    if (!initResult.success) {
+      return error(initResult.message || 'Failed to initialize payment', 400);
+    }
 
     // Create a pending payment record
     const payment = await db.payment.create({
@@ -107,9 +135,9 @@ export async function POST(request: NextRequest) {
         contestantId: contestant.id,
         amount: votePackage.price,
         status: 'pending',
-        paymentMethod: 'paystack',
-        transactionId,
-        reference,
+        paymentMethod,
+        transactionId: initResult.transactionId,
+        reference: initResult.reference,
         // Store payer info in reference-related fields
         depositorName: payerName || null,
       },
@@ -128,7 +156,7 @@ export async function POST(request: NextRequest) {
 
     return success(
       {
-        paymentUrl: null, // Mock — in production this would be a Paystack/Flutterwave URL
+        paymentUrl: initResult.paymentUrl || null,
         reference: payment.reference,
         amount: payment.amount,
         votes: totalVotes,
@@ -142,7 +170,9 @@ export async function POST(request: NextRequest) {
           currency: currencySetting?.value || 'NGN',
           platformName: platformNameSetting?.value || 'Beauty Vote',
         },
-        message: 'Payment initiated. Complete the payment to credit votes.',
+        message: initResult.paymentUrl
+          ? 'Payment initiated. Complete the payment to credit votes.'
+          : 'Payment initiated in demo mode. Votes will be credited after verification.',
       },
       201,
       { message: 'Public vote payment initiated successfully' }

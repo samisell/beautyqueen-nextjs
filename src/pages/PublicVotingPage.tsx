@@ -205,6 +205,53 @@ export default function PublicVotingPage() {
     fetchPackages();
   }, [fetchContestant, fetchPackages]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment_verify') !== '1' || params.get('public_vote') !== '1') return;
+
+    const reference = params.get('reference');
+    if (!reference) return;
+
+    setProcessing(true);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('payment_verify');
+    url.searchParams.delete('public_vote');
+    url.searchParams.delete('reference');
+    url.searchParams.delete('method');
+    window.history.replaceState({}, '', url.toString());
+
+    async function verifyPublicVotePayment() {
+      try {
+        const verifyRes = await fetch('/api/public-vote/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reference }),
+        });
+        const verifyData: VerifyResponse = await verifyRes.json();
+
+        if (verifyData.success && verifyData.data) {
+          setSuccessData({
+            contestantName: verifyData.data.contestantName || contestant?.name || 'Contestant',
+            votesAdded: verifyData.data.votesCredited,
+            newTotal: (contestant?.totalVotes || 0) + verifyData.data.votesCredited,
+          });
+          fetchContestant();
+          toast.success(verifyData.data.message || 'Votes credited successfully!');
+          return;
+        }
+
+        toast.error(verifyData.error || verifyData.message || 'Payment verification failed');
+      } catch {
+        toast.error('Failed to verify public vote payment');
+      } finally {
+        setProcessing(false);
+      }
+    }
+
+    void verifyPublicVotePayment();
+  }, [contestant?.name, contestant?.totalVotes, fetchContestant]);
+
   // ────────────────────────────────────────────
   // Handle payment
   // ────────────────────────────────────────────
@@ -251,7 +298,7 @@ export default function PublicVotingPage() {
           const verifyRes = await fetch('/api/public-vote/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reference }),
+            body: JSON.stringify({ reference, demo: 1 }),
           });
           const verifyData: VerifyResponse = await verifyRes.json();
 

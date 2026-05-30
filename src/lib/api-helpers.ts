@@ -34,10 +34,16 @@ export async function getUserFromRequest(
   request: NextRequest
 ): Promise<{ user: TokenPayload; error: null } | { user: null; error: NextResponse }> {
   const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
+  const headerToken = authHeader?.startsWith('Bearer ')
+    ? authHeader.split(' ')[1]
+    : null;
+  const cookieToken = request.cookies.get('accessToken')?.value || null;
+  const token = headerToken || cookieToken;
+
+  if (!token) {
     return { user: null, error: error('Authentication required — provide a Bearer token', 401) };
   }
-  const token = authHeader.split(' ')[1];
+
   const payload = verifyAccessToken(token);
   if (!payload) {
     return { user: null, error: error('Invalid or expired token', 401) };

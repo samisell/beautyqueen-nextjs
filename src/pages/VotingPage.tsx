@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
+import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
 import { useNavigationStore } from '@/stores/navigation-store';
 import { useVotingStore } from '@/stores/voting-store';
 import { useAuthStore } from '@/stores/auth-store';
@@ -82,7 +83,8 @@ export default function VotingPage() {
   const [error, setError] = useState<string | null>(null);
   const [votingPaid, setVotingPaid] = useState(false);
   const [votingReferral, setVotingReferral] = useState(false);
-  const [purchasingPkgId, setPurchasingPkgId] = useState<string | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<VotePackage | null>(null);
   const [copied, setCopied] = useState(false);
   const [voteAnimation, setVoteAnimation] = useState(false);
   const [displayVotes, setDisplayVotes] = useState(0);
@@ -246,30 +248,15 @@ export default function VotingPage() {
     }
   };
 
-  const handlePurchase = async (pkg: VotePackage) => {
-    if (purchasingPkgId) return;
-
-    setPurchasingPkgId(pkg.id);
-    try {
-      const res = await fetch('/api/purchase', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ packageId: pkg.id }),
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        const totalVotes = pkg.votes + pkg.bonusVotes;
-        toast.success(`${pkg.name} purchased! You received ${totalVotes} votes.`);
-        fetchUserStats();
-      } else {
-        toast.error(data.message || 'Purchase failed');
-      }
-    } catch {
-      toast.error('Something went wrong');
-    } finally {
-      setPurchasingPkgId(null);
+  const handlePurchase = (pkg: VotePackage) => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to buy vote packages');
+      navigate('login');
+      return;
     }
+
+    setSelectedPackage(pkg);
+    setPaymentDialogOpen(true);
   };
 
   const handleShare = () => {
@@ -281,6 +268,10 @@ export default function VotingPage() {
   };
 
   const availablePaidVotes = userStats?.availableVotes ?? 0;
+
+  const handlePurchaseComplete = async () => {
+    await fetchUserStats();
+  };
 
   // Loading state
   if (loading) {
@@ -515,7 +506,7 @@ export default function VotingPage() {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {packages.map((pkg) => {
-                    const isPurchasing = purchasingPkgId === pkg.id;
+                    const isPurchasing = paymentDialogOpen && selectedPackage?.id === pkg.id;
                     const totalVotes = pkg.votes + pkg.bonusVotes;
 
                     return (
@@ -602,6 +593,13 @@ export default function VotingPage() {
           </motion.div>
         </div>
       </div>
+
+      <PaymentMethodSelector
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        selectedPackage={selectedPackage}
+        onPurchaseComplete={handlePurchaseComplete}
+      />
     </div>
   );
 }
